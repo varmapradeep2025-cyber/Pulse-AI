@@ -2,10 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { checkTranslations } from "./data/translations";
+import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
 
 if (import.meta.env.DEV) {
   const problems = checkTranslations();
+
   if (problems.length > 0) {
     console.warn(
       "[translations] Missing or empty translation keys:",
@@ -16,6 +18,8 @@ if (import.meta.env.DEV) {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>,
 );

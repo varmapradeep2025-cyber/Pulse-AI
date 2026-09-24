@@ -3,13 +3,16 @@ import express from "express";
 import cors from "cors";
 import { env } from "./config/env.js";
 import healthRouter from "./routes/health.js";
-
+import dbTestRouter from "./routes/dbtest.js";
+import scenarioRouter from "./routes/scenario.js";
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
 app.use(healthRouter);
+app.use(dbTestRouter);
+app.use(scenarioRouter);
 
 app.listen(env.PORT, env.HOST, () => {
   console.log(
