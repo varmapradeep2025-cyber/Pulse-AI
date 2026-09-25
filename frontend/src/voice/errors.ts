@@ -13,7 +13,7 @@ export function recognitionErrorKey(kind: SpeechRecognitionErrorKind): Translati
     case "audio-capture":
       return "voice.micUnavailable";
     case "network":
-      return "voice.networkError";
+      return "voice.speechServiceUnavailable";
     case "no-speech":
       return "voice.noSpeech";
     case "language-not-supported":

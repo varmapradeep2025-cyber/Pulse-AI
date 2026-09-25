@@ -9,10 +9,12 @@ import DashboardPage from "./pages/DashboardPage";
 import HospitalsPage from "./pages/HospitalsPage";
 import HospitalDetailsPage from "./pages/HospitalDetailsPage";
 import SchemesPage from "./pages/SchemesPage";
+import SchemeDetailsPage from "./pages/SchemeDetailsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DocumentsPage from "./pages/DocumentsPage";
 import ReportsPage from "./pages/ReportsPage";
 import AssistantPage from "./pages/AssistantPage";
+import IntelligencePage from "./pages/IntelligencePage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
@@ -32,12 +34,14 @@ export default function App() {
   element={<HospitalDetailsPage />}
 />
     <Route path="/schemes" element={<SchemesPage />} />
+    <Route path="/schemes/:id" element={<SchemeDetailsPage />} />
 
     {/* Protected routes */}
     <Route element={<ProtectedRoute />}>
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/documents" element={<DocumentsPage />} />
       <Route path="/reports" element={<ReportsPage />} />
+      <Route path="/intelligence" element={<IntelligencePage />} />
       <Route path="/assistant" element={<AssistantPage />} />
     </Route>
 

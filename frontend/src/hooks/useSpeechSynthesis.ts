@@ -77,13 +77,15 @@ export function useSpeechSynthesis(): SpeechSynthesisControls {
       synth.cancel();
 
       const matchingVoice = findMatchingVoice(lang);
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (matchingVoice) {
-        utterance.voice = matchingVoice;
-        utterance.lang = matchingVoice.lang;
-      } else {
-        utterance.lang = lang;
+      if (!matchingVoice) {
+        setIsSpeaking(false);
+        setError("no-voice");
+        return;
       }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = matchingVoice;
+      utterance.lang = matchingVoice.lang;
 
       cancelledRef.current = false;
       utterance.onstart = () => {
@@ -99,7 +101,7 @@ export function useSpeechSynthesis(): SpeechSynthesisControls {
         if (cancelledRef.current) {
           return;
         }
-        setError(matchingVoice ? "synthesis" : "no-voice");
+        setError("synthesis");
       };
 
       setError(null);

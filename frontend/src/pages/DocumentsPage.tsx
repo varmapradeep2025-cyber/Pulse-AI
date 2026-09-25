@@ -1,13 +1,22 @@
 import { useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   documentCategories,
+  documentCategoryByType,
   sampleDocuments,
+  SYNTHETIC_DOCUMENT_TYPES,
 } from "../data/documents";
+import { getHospitalName, syntheticHospitals } from "../data/hospitals";
+import { syntheticPatientIds } from "../data/patients";
+import { markDocumentUploaded } from "../data/demoCitizen";
 import { useLanguage } from "../context/LanguageContext";
 import DocumentCard from "../components/DocumentCard";
 import EmptyState from "../components/EmptyState";
-import { supabase } from "../lib/supabase";
-import type { Document, DocumentCategory } from "../types/domain";
+import type {
+  Document,
+  DocumentCategory,
+  DocumentStatus,
+} from "../types/domain";
 import type { TranslationKey } from "../data/translations";
 
 const CATEGORY_KEYS: Record<DocumentCategory, TranslationKey> = {
@@ -18,32 +27,83 @@ const CATEGORY_KEYS: Record<DocumentCategory, TranslationKey> = {
   Prescriptions: "doc.prescriptions",
 };
 
+type UploadStage = "idle" | "uploading" | "verifying" | "complete";
+
+interface SchemeUploadState {
+  openAdd: boolean;
+  documentName: string;
+  documentType: string;
+  schemeId: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes <= 0) {
+    return "0 KB";
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function DocumentsPage() {
   const { t } = useLanguage();
+
+  /*
+   * Scheme-driven upload: when the user opens this page from a scheme's
+   * "Upload Missing Document" button, the form is prefilled so the upload
+   * continues the existing Documents portal flow.
+   */
+  const location = useLocation();
+
+  const schemeUpload = (
+    (location.state as { schemeUpload?: SchemeUploadState } | null)
+      ?.schemeUpload
+  );
 
   const [category, setCategory] =
     useState<DocumentCategory | "All">("All");
 
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(Boolean(schemeUpload));
 
   const [uploadedDocuments, setUploadedDocuments] =
     useState<Document[]>([]);
 
-  const [documentName, setDocumentName] = useState("");
+  const [documentName, setDocumentName] = useState(
+    schemeUpload?.documentName ?? "",
+  );
 
-  const [documentCategory, setDocumentCategory] =
-    useState<DocumentCategory>("Healthcare Documents");
+  const [documentType, setDocumentType] = useState(
+    schemeUpload?.documentType ??
+      SYNTHETIC_DOCUMENT_TYPES[0],
+  );
+
+  const [patientId, setPatientId] = useState(
+    syntheticPatientIds[0],
+  );
+
+  const [hospitalId, setHospitalId] = useState(
+    syntheticHospitals[0].hospital_id,
+  );
 
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
 
   const [message, setMessage] = useState("");
 
+  const [uploadStage, setUploadStage] =
+    useState<UploadStage>("idle");
+
+  const [uploadProgress, setUploadProgress] =
+    useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allDocuments = [
-    ...sampleDocuments,
     ...uploadedDocuments,
+    ...sampleDocuments,
   ];
 
   const documents =
@@ -64,8 +124,6 @@ export default function DocumentsPage() {
 
     setSelectedFile(file);
 
-    // If the user hasn't entered a name,
-    // use the filename automatically.
     if (!documentName.trim()) {
       const fileNameWithoutExtension =
         file.name.replace(/\.[^/.]+$/, "");
@@ -74,96 +132,112 @@ export default function DocumentsPage() {
     }
 
     setMessage("");
+    setUploadStage("idle");
+    setUploadProgress(0);
   };
 
-  const handleSubmitDocument = async () => {
-  if (!selectedFile) {
-    setMessage("Please select a document first.");
-    return;
-  }
-
-  if (!documentName.trim()) {
-    setMessage("Please enter a document name.");
-    return;
-  }
-
-  try {
-    setMessage("Uploading document...");
-
-    const fileExtension =
-      selectedFile.name.split(".").pop() || "file";
-
-    const safeName = documentName
-      .trim()
-      .replace(/[^a-zA-Z0-9-_]/g, "_");
-
-    const filePath = `${Date.now()}-${safeName}.${fileExtension}`;
-
-    // Upload file to Supabase Storage
-    const { error: uploadError } =
-      await supabase.storage
-        .from("documents")
-        .upload(filePath, selectedFile);
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    // Get public URL
-    const { data: publicUrlData } =
-      supabase.storage
-        .from("documents")
-        .getPublicUrl(filePath);
-
-    const extension =
-      selectedFile.name
-        .split(".")
-        .pop()
-        ?.toUpperCase() || "FILE";
-
-    const newDocument: Document = {
-      id: `uploaded-${Date.now()}`,
-      title: documentName.trim(),
-      category: documentCategory,
-      dateAdded: new Date()
-        .toISOString()
-        .split("T")[0],
-      fileType: extension,
-      isDemo: false,
-    };
-
-    setUploadedDocuments((current) => [
-      ...current,
-      newDocument,
-    ]);
-
-    console.log(
-      "Uploaded document URL:",
-      publicUrlData.publicUrl,
-    );
-
+  const clearFileSelection = () => {
     setDocumentName("");
     setSelectedFile(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
 
-    setMessage(
-      "Document uploaded successfully.",
-    );
-  } catch (error) {
-    console.error("Document upload failed:", error);
+  const handleSubmitDocument = () => {
+    if (!selectedFile) {
+      setMessage("Please select a document first.");
+      return;
+    }
 
-    setMessage(
-      error instanceof Error
-        ? `Upload failed: ${error.message}`
-        : "Document upload failed.",
-    );
-  }
-};
+    if (!documentName.trim()) {
+      setMessage("Please enter a document name.");
+      return;
+    }
 
-   
+    setMessage("");
+    setUploadStage("uploading");
+    setUploadProgress(12);
+
+    /*
+     * REALISTIC DEMO UPLOAD
+     * ---------------------
+     * The upload is simulated locally so the demo works offline.
+     * No file is transmitted or stored on any server. A synthetic
+     * document record is added to the list below.
+     */
+    window.setTimeout(() => {
+      setUploadProgress(46);
+    }, 350);
+
+    window.setTimeout(() => {
+      setUploadProgress(74);
+      setUploadStage("verifying");
+    }, 850);
+
+    window.setTimeout(() => {
+      const finishWith = (selectedFileValue: File) => {
+        const extension =
+          selectedFileValue.name
+            .split(".")
+            .pop()
+            ?.toUpperCase() || "FILE";
+
+        const today = new Date()
+          .toISOString()
+          .split("T")[0];
+
+        const documentId = `UPL-${Date.now()}`;
+
+        /*
+         * The picked file is kept in the browser via an object URL, so the
+         * upload is "real" from the user's perspective: it can be opened or
+         * downloaded from the document card. Nothing is sent to a server.
+         */
+        const fileDataUrl = URL.createObjectURL(selectedFileValue);
+
+        const newDocument: Document = {
+          id: documentId,
+          title: documentName.trim(),
+          document_name: documentName.trim(),
+          category: documentCategoryByType(documentType),
+          dateAdded: today,
+          fileType: extension,
+          isDemo: true,
+          fileDataUrl,
+
+          document_id: documentId,
+          patient_id: patientId,
+          document_type: documentType,
+          hospital_id: hospitalId,
+          upload_date: today,
+          status: "Processing" as DocumentStatus,
+          file_type: extension,
+          file_size: formatFileSize(selectedFileValue.size),
+          description: `Uploaded in the Pulse AI demo (synthetic demo record) for ${patientId} at ${getHospitalName(hospitalId)}.`,
+        };
+
+        setUploadedDocuments((current) => [
+          newDocument,
+          ...current,
+        ]);
+
+        setUploadProgress(100);
+        setUploadStage("complete");
+
+        setMessage(
+          "Document uploaded successfully. It was added to your Documents list (synthetic demo record).",
+        );
+
+        markDocumentUploaded(documentName.trim());
+
+        clearFileSelection();
+      };
+
+      finishWith(selectedFile);
+    }, 1700);
+  };
 
   const heading = t("action.documents");
 
@@ -196,29 +270,39 @@ export default function DocumentsPage() {
           <h2>{t("doc.addTitle")}</h2>
 
           <p className="demo-note">
-            Upload a document to add it to your
-            personal document portal.
+            Demo upload: the file stays in your browser
+            (nothing is sent to a server), and you can
+            open or download it from the document card. A
+            synthetic demo record is added to your list.
           </p>
 
-          {/* Document category */}
+          {schemeUpload && (
+            <p className="demo-note">
+              This upload was opened from the Government
+              Schemes section for the synthetic demo
+              citizen. "{schemeUpload.documentName}" is
+              prefilled — upload or edit it, then return
+              to the scheme.
+            </p>
+          )}
+
+          {/* Document type */}
           <label
-            htmlFor="document-category"
+            htmlFor="document-type"
             style={{
               display: "block",
               marginTop: "16px",
               marginBottom: "6px",
             }}
           >
-            <strong>Document category</strong>
+            <strong>Document type</strong>
           </label>
 
           <select
-            id="document-category"
-            value={documentCategory}
+            id="document-type"
+            value={documentType}
             onChange={(event) =>
-              setDocumentCategory(
-                event.target.value as DocumentCategory,
-              )
+              setDocumentType(event.target.value)
             }
             style={{
               width: "100%",
@@ -228,12 +312,79 @@ export default function DocumentsPage() {
               border: "1px solid #ccc",
             }}
           >
-            {documentCategories.map((cat) => (
+            {SYNTHETIC_DOCUMENT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          {/* Patient */}
+          <label
+            htmlFor="document-patient"
+            style={{
+              display: "block",
+              marginTop: "16px",
+              marginBottom: "6px",
+            }}
+          >
+            <strong>Patient ID (synthetic)</strong>
+          </label>
+
+          <select
+            id="document-patient"
+            value={patientId}
+            onChange={(event) =>
+              setPatientId(event.target.value)
+            }
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              padding: "10px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
+          >
+            {syntheticPatientIds.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+
+          {/* Hospital */}
+          <label
+            htmlFor="document-hospital"
+            style={{
+              display: "block",
+              marginTop: "16px",
+              marginBottom: "6px",
+            }}
+          >
+            <strong>Hospital (synthetic)</strong>
+          </label>
+
+          <select
+            id="document-hospital"
+            value={hospitalId}
+            onChange={(event) =>
+              setHospitalId(event.target.value)
+            }
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              padding: "10px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
+          >
+            {syntheticHospitals.map((hospital) => (
               <option
-                key={cat}
-                value={cat}
+                key={hospital.hospital_id}
+                value={hospital.hospital_id}
               >
-                {t(CATEGORY_KEYS[cat])}
+                {hospital.hospital_id} —{" "}
+                {hospital.hospital_name}
               </option>
             ))}
           </select>
@@ -290,8 +441,49 @@ export default function DocumentsPage() {
               Selected file:{" "}
               <strong>
                 {selectedFile.name}
-              </strong>
+              </strong>{" "}
+              ({formatFileSize(selectedFile.size)})
             </p>
+          )}
+
+          {/* Progress */}
+          {uploadStage !== "idle" && (
+            <div
+              style={{
+                marginTop: "16px",
+                maxWidth: "420px",
+              }}
+              role="progressbar"
+              aria-valuenow={uploadProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Upload progress"
+            >
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+                role="status"
+              >
+                {uploadStage === "uploading" &&
+                  "Uploading…"}
+                {uploadStage === "verifying" &&
+                  "Verifying file…"}
+                {uploadStage === "complete" &&
+                  "Complete"}
+              </p>
+
+              <div className="progress-track">
+                <div
+                  className="progress-bar"
+                  style={{
+                    width: `${uploadProgress}%`,
+                  }}
+                />
+              </div>
+            </div>
           )}
 
           {/* Submit */}
@@ -307,8 +499,11 @@ export default function DocumentsPage() {
               type="button"
               className="btn btn--primary"
               onClick={handleSubmitDocument}
+              disabled={uploadStage === "uploading" || uploadStage === "verifying"}
             >
-              Submit Document
+              {uploadStage === "uploading" || uploadStage === "verifying"
+                ? "Uploading…"
+                : "Submit Document"}
             </button>
 
             <button
@@ -337,6 +532,12 @@ export default function DocumentsPage() {
               {message}
             </p>
           )}
+
+          <p className="demo-note">
+            Patient records are synthetic placeholders
+            (PAT-001 …). No real patient information is
+            used or stored.
+          </p>
 
           <p className="demo-note">
             {t("doc.scanNote")}

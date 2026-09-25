@@ -69,12 +69,14 @@ export const pa: Dictionary = {
   "voice.micUnavailable":
     "ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਕਨੈਕਟ ਕਰੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "voice.networkError":
-    "ਵੌਇਸ ਪਛਾਣ ਸਪੀਚ ਸੇਵਾ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕੀ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਜਾਂਚੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+    "ਬ੍ਰਾਊਜ਼ਰ ਵੌਇਸ ਪਛਾਣ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ Chrome ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਟਾਈਪ ਕਰੋ।",
+  "voice.speechServiceUnavailable":
+    "ਬ੍ਰਾਊਜ਼ਰ ਵੌਇਸ ਪਛਾਣ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ Chrome ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਟਾਈਪ ਕਰੋ।",
   "voice.noSpeech": "ਕੋਈ ਭਾਸ਼ਣ ਨਹੀਂ ਮਿਲਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਬੋਲਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "voice.unrecognized":
     "ਵੌਇਸ ਪਛਾਣ ਤੁਹਾਡੀ ਗੱਲ ਨੂੰ ਸਮਝ ਨਹੀਂ ਸਕੀ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "voice.aborted": "ਰਿਕਾਰਡਿੰਗ ਰੋਕ ਦਿੱਤੀ ਗਈ।",
-  "voice.synthesisUnavailable": "ਇਸ ਡਿਵਾਈਸ ਤੇ ਵੌਇਸ ਪਲੇਬੈਕ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
+  "voice.synthesisUnavailable": "ਇਸ ਭਾਸ਼ਾ ਲਈ ਇਸ ਡਿਵਾਈਸ ਤੇ ਵੌਇਸ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
   "voice.synthesisError":
     "ਜਵਾਬ ਚਲਾਉਣ ਵਿੱਚ ਸਮੱਸਿਆ ਆਈ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "assistant.heading": "Pulse AI ਨਾਲ ਗੱਲ ਕਰੋ",
@@ -92,6 +94,39 @@ export const pa: Dictionary = {
   "assistant.reply.understand": "ਸਿਹਤ ਜਾਣਕਾਰੀ ਸਮਝਣ ਵਿੱਚ ਮੈਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਮੈਂ ਡਾਕਟਰ ਨਹੀਂ ਹਾਂ ਅਤੇ ਡਾਕਟਰੀ ਸਲਾਹ ਨਹੀਂ ਦਿੰਦਾ।",
   "assistant.intro.greeting": "ਨਮਸਤੇ! ਸਿਹਤ ਸੇਵਾਵਾਂ ਲੱਭਣ ਅਤੇ ਕਦਮਾਂ ਨੂੰ ਸੌਖੀ ਭਾਸ਼ਾ ਵਿੱਚ ਸਮਝਾਉਣ ਵਿੱਚ ਮੈਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਅੱਜ ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰਾਂ?",
   "assistant.transcript": "ਮੈਨੂੰ ਇੱਕ ਸਰਕਾਰੀ ਹਸਪਤਾਲ ਬਾਰੇ ਜਾਣਕਾਰੀ ਚਾਹੀਦੀ ਹੈ।",
+  "assistant.reply.urgency": "ਤਤਕਾਲੀ ਗੰਭੀਰਤਾ: {urgency}",
+  "assistant.reply.suggestedDepartment": "ਸੁਝਾਇਆ ਗਿਆ ਵਿਭਾਗ: {departments}",
+  "assistant.reply.noMatch":
+    "ਸਿੰਥੈਟਿਕ ਡੈਮੋ ਡੇਟਾਸੈੱਟ ਵਿੱਚ ਕੋਈ ਮੇਲ ਖਾਂਦਾ ਹਸਪਤਾਲ ਨਹੀਂ ਮਿਲਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੀ ਸਭ ਤੋਂ ਨੇੜਲੀ ਸਿਹਤ ਸਹੂਲਤ 'ਤੇ ਜਾਓ।",
+  "assistant.reply.matchHeader": "ਮੇਲ ਖਾਂਦੇ ਹਸਪਤਾਲ (ਸਿੰਥੈਟਿਕ ਡੈਮੋ ਡੇਟਾ):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} ਬੈੱਡ ਉਪਲਬਧ",
+  "assistant.reply.emergencyAvailable": "ਐਮਰਜੈਂਸੀ ਸਹੂਲਤ ਉਪਲਬਧ",
+  "assistant.reply.emergencyUnavailable": "ਐਮਰਜੈਂਸੀ ਸਹੂਲਤ ਉਪਲਬਧ ਨਹੀਂ",
+  "assistant.reply.safety":
+    "ਦਵਾਈ ਦੇ ਫੈਸਲੇ ਯੋਗ ਸਿਹਤ ਪੇਸ਼ੇਵਰ ਦੁਆਰਾ ਲਏ ਜਾਣੇ ਚਾਹੀਦੇ ਹਨ। ਇਹ ਕੋਈ ਡਾਕਟਰੀ ਨਿਦਾਨ ਨਹੀਂ ਹੈ।",
+
+  "urgency.low": "ਘੱਟ",
+  "urgency.moderate": "ਮੱਧਮ",
+  "urgency.high": "ਗੰਭੀਰ",
+  "department.generalMedicine": "ਆਮ ਇਲਾਜ",
+  "department.generalConsultation": "ਆਮ ਸਲਾਹ",
+  "department.cardiology": "ਦਿਲ ਦੇ ਰੋਗ ਵਿਭਾਗ",
+  "department.emergency": "ਐਮਰਜੈਂਸੀ",
+  "department.generalSurgery": "ਆਮ ਸਰਜਰੀ",
+  "department.obstetricsGynaecology": "ਪ੍ਰਸੂਤੀ ਅਤੇ ਔਰਤ ਰੋਗ",
+  "department.pediatrics": "ਬਾਲ ਰੋਗ",
+  "department.neonatology": "ਨਵਜੰਮੇ ਬੱਚਿਆਂ ਦੇ ਰੋਗ",
+  "department.maternalChildHealth": "ਮਾਂ ਅਤੇ ਬੱਚੇ ਦੀ ਸਿਹਤ",
+  "department.vaccination": "ਟੀਕਾਕਰਨ",
+  "department.diagnostics": "ਜਾਂਚ",
+  "department.laboratory": "ਪ੍ਰਯੋਗਸ਼ਾਲਾ",
+  "department.pathology": "ਪੈਥੋਲੋਜੀ",
+  "department.radiology": "ਰੇਡੀਓਲੋਜੀ",
+  "department.dermatology": "ਚਮੜੀ ਰੋਗ",
+  "department.pharmacy": "ਫਾਰਮੇਸੀ",
+  "department.orthopedics": "ਹੱਡੀਆਂ ਦੇ ਰੋਗ ਵਿਭਾਗ",
+
   "languages.label": "ਭਾਸ਼ਾ",
   "languages.choose": "ਭਾਸ਼ਾ ਚੁਣੋ",
   "hospital.subtitle": "ਉਪਲਬਧ ਸਿਹਤ ਸੇਵਾਵਾਂ ਲੱਭੋ ਅਤੇ ਸਮਝੋ। ਸਾਰੇ ਨਤੀਜੇ ਡੈਮੋ ਸਮੱਗਰੀ ਹਨ।",

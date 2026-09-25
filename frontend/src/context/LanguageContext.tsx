@@ -7,6 +7,10 @@ interface LanguageContextValue {
   language: LanguageOption;
   setLanguage: (code: LanguageOption["code"]) => void;
   t: (key: TranslationKey) => string;
+  format: (
+    key: TranslationKey,
+    params?: Record<string, string | number>,
+  ) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -23,6 +27,23 @@ function readStoredLanguage(): LanguageOption["code"] {
     // localStorage is not available; fall back to the default language.
   }
   return defaultLanguageCode;
+}
+
+/*
+ * Substitute {placeholders} in a translated template. Factual values
+ * (hospital names, numbers, risk levels, etc.) are injected verbatim and
+ * never translated by the template itself.
+ */
+function interpolate(
+  template: string,
+  params?: Record<string, string | number>,
+): string {
+  if (!params) {
+    return template;
+  }
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    name in params ? String(params[name]) : match,
+  );
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -44,8 +65,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       translations[language.code]?.[key] ??
       translations["en"]?.[key] ??
       key;
+    const format = (
+      key: TranslationKey,
+      params?: Record<string, string | number>,
+    ) => interpolate(t(key), params);
 
-    return { language, setLanguage, t };
+    return { language, setLanguage, t, format };
   }, [code]);
 
   return (

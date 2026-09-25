@@ -69,12 +69,14 @@ export const te: Dictionary = {
   "voice.micUnavailable":
     "మైక్రోఫోన్ అందుబాటులో లేదు. దయచేసి మైక్రోఫోన్ను కనెక్ట్ చేసి మళ్లీ ప్రయత్నించండి.",
   "voice.networkError":
-    "వాయిస్ గుర్తింపు స్పీచ్ సేవను చేరుకోలేకపోయింది. దయచేసి మీ ఇంటర్నెట్ కనెక్షన్ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.",
+    "బ్రౌజర్ వాయిస్ గుర్తింపు ప్రస్తుతం అందుబాటులో లేదు. దయచేసి Chromeలో మళ్లీ ప్రయత్నించండి లేదా టైప్ చేయండి.",
+  "voice.speechServiceUnavailable":
+    "బ్రౌజర్ వాయిస్ గుర్తింపు ప్రస్తుతం అందుబాటులో లేదు. దయచేసి Chromeలో మళ్లీ ప్రయత్నించండి లేదా టైప్ చేయండి.",
   "voice.noSpeech": "మాటలు గుర్తించబడలేదు. దయచేసి మళ్లీ మాట్లాడటానికి ప్రయత్నించండి.",
   "voice.unrecognized":
     "వాయిస్ గుర్తింపు మీరు చెప్పినదాన్ని అర్థం చేసుకోలేకపోయింది. దయచేసి మళ్లీ ప్రయత్నించండి.",
   "voice.aborted": "రికార్డింగ్ ఆపివేయబడింది.",
-  "voice.synthesisUnavailable": "ఈ పరికరంలో వాయిస్ ప్లేబ్యాక్ అందుబాటులో లేదు.",
+  "voice.synthesisUnavailable": "ఈ భాషకు ఈ పరికరంలో వాయిస్ అందుబాటులో లేదు.",
   "voice.synthesisError":
     "సమాధానాన్ని ప్లే చేయడంలో సమస్య ఉంది. దయచేసి మళ్లీ ప్రయత్నించండి.",
   "assistant.heading": "Pulse AIతో మాట్లాడండి",
@@ -92,6 +94,39 @@ export const te: Dictionary = {
   "assistant.reply.understand": "ఆరోగ్య సమాచారాన్ని అర్థం చేసుకోవడంలో నేను సహాయం చేయగలను. నేను వైద్యుడిని కాదు మరియు వైద్య సలహా ఇవ్వను.",
   "assistant.intro.greeting": "నమస్తే! ఆరోగ్య సేవలను కనుగొనడంలో మరియు దశలను సరళమైన భాషలో వివరించడంలో నేను సహాయం చేయగలను. ఈరోజు నేను మీకు ఎలా సహాయం చేయాలి?",
   "assistant.transcript": "ఒక ప్రభుత్వ ఆసుపత్రి గురించి సమాచారం కావాలి.",
+  "assistant.reply.urgency": "తీవ్రత స్థాయి: {urgency}",
+  "assistant.reply.suggestedDepartment": "సూచించిన విభాగం: {departments}",
+  "assistant.reply.noMatch":
+    "సింథటిక్ డెమో డేటాసెట్లో సరిపోయే ఆసుపత్రి ఏదీ కనుగొనబడలేదు. దయచేసి మీ సమీప ఆరోగ్య కేంద్రాన్ని సందర్శించండి.",
+  "assistant.reply.matchHeader": "సరిపోయే ఆసుపత్రులు (సింథటిక్ డెమో డేటా):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} పడకలు అందుబాటులో ఉన్నాయి",
+  "assistant.reply.emergencyAvailable": "అత్యవసర సేవ అందుబాటులో ఉంది",
+  "assistant.reply.emergencyUnavailable": "అత్యవసర సేవ అందుబాటులో లేదు",
+  "assistant.reply.safety":
+    "మందులకు సంబంధించిన నిర్ణయాలను అర్హత కలిగిన ఆరోగ్య నిపుణుడు తీసుకోవాలి. ఇది వైద్యపరమైన రోగనిర్ధారణ కాదు.",
+
+  "urgency.low": "తక్కువ",
+  "urgency.moderate": "మితమైన",
+  "urgency.high": "తీవ్రమైన",
+  "department.generalMedicine": "సాధారణ వైద్యం",
+  "department.generalConsultation": "సాధారణ సంప్రదింపులు",
+  "department.cardiology": "గుండె జబ్బుల విభాగం",
+  "department.emergency": "అత్యవసరం",
+  "department.generalSurgery": "సాధారణ శస్త్రచికిత్స",
+  "department.obstetricsGynaecology": "ప్రసూతి మరియు స్త్రీ వ్యాధులు",
+  "department.pediatrics": "శిశు వైద్యం",
+  "department.neonatology": "నవజాత శిశు వైద్యం",
+  "department.maternalChildHealth": "తల్లి మరియు శిశు ఆరోగ్యం",
+  "department.vaccination": "టీకా",
+  "department.diagnostics": "రోగ నిర్ధారణ",
+  "department.laboratory": "ప్రయోగశాల",
+  "department.pathology": "వ్యాధి శాస్త్రం",
+  "department.radiology": "వికిరణ శాస్త్రం",
+  "department.dermatology": "చర్మ వ్యాధులు",
+  "department.pharmacy": "ఫార్మసీ",
+  "department.orthopedics": "ఎముకల వైద్యం",
+
   "languages.label": "భాష",
   "languages.choose": "భాషను ఎంచుకోండి",
   "hospital.subtitle": "అందుబాటులో ఉన్న ఆరోగ్య సేవలను కనుగొనండి మరియు అర్థం చేసుకోండి. అన్ని ఫలితాలు డెమో కంటెంట్.",

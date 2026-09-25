@@ -69,12 +69,14 @@ export const ta: Dictionary = {
   "voice.micUnavailable":
     "மைக்ரோஃபோன் கிடைக்கவில்லை. தயவுசெய்து மைக்ரோஃபோன் இணைத்து மீண்டும் முயற்சிக்கவும்.",
   "voice.networkError":
-    "பேச்சு அங்கீகாரம் பேச்சு சேவையை அடைய முடியவில்லை. தயவுசெய்து உங்கள் இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+    "உலாவி குரல் அங்கீகாரம் தற்போது கிடைக்கவில்லை. தயவுசெய்து Chrome-ல் மீண்டும் முயற்சிக்கவும் அல்லது தட்டச்சு செய்யவும்.",
+  "voice.speechServiceUnavailable":
+    "உலாவி குரல் அங்கீகாரம் தற்போது கிடைக்கவில்லை. தயவுசெய்து Chrome-ல் மீண்டும் முயற்சிக்கவும் அல்லது தட்டச்சு செய்யவும்.",
   "voice.noSpeech": "எந்த பேச்சும் கண்டறியப்படவில்லை. தயவுசெய்து மீண்டும் பேச முயற்சிக்கவும்.",
   "voice.unrecognized":
     "பேச்சு அங்கீகாரம் நீங்கள் சொன்னதைப் புரிந்துகொள்ள முடியவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
   "voice.aborted": "பதிவு நிறுத்தப்பட்டது.",
-  "voice.synthesisUnavailable": "இந்த சாதனத்தில் குரல் இயக்கம் கிடைக்கவில்லை.",
+  "voice.synthesisUnavailable": "இந்த மொழிக்கு இந்த சாதனத்தில் குரல் கிடைக்கவில்லை.",
   "voice.synthesisError":
     "பதிலை இயக்குவதில் சிக்கல் ஏற்பட்டது. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.",
   "assistant.heading": "Pulse AI-யிடம் பேசுங்கள்",
@@ -92,6 +94,39 @@ export const ta: Dictionary = {
   "assistant.reply.understand": "சுகாதாரத் தகவலைப் புரிந்துகொள்ள உதவ முடியும். நான் மருத்துவர் அல்ல, மருத்துவ ஆலோசனை அளிக்க மாட்டேன்.",
   "assistant.intro.greeting": "வணக்கம்! சுகாதார சேவைகளைக் கண்டறியவும் படிகளை எளிய மொழியில் விளக்கவும் நான் உதவ முடியும். இன்று உங்களுக்கு என்ன உதவி?",
   "assistant.transcript": "அரசு மருத்துவமனை பற்றிய தகவல் எனக்கு வேண்டும்.",
+  "assistant.reply.urgency": "அவசர நிலை: {urgency}",
+  "assistant.reply.suggestedDepartment": "பரிந்துரைக்கப்பட்ட துறை: {departments}",
+  "assistant.reply.noMatch":
+    "செயற்கை டெமோ தரவுகளில் பொருந்தக்கூடிய மருத்துவமனை எதுவும் காணப்படவில்லை. உங்களுக்கு அருகிலுள்ள சுகாதார மையத்தைப் பார்வையிடவும்.",
+  "assistant.reply.matchHeader": "பொருந்தக்கூடிய மருத்துவமனைகள் (செயற்கை டெமோ தரவு):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} படுக்கைகள் கிடைக்கின்றன",
+  "assistant.reply.emergencyAvailable": "அவசர சேவை கிடைக்கிறது",
+  "assistant.reply.emergencyUnavailable": "அவசர சேவை இல்லை",
+  "assistant.reply.safety":
+    "மருந்து சம்பந்தமான முடிவுகளை தகுதிவாய்ந்த சுகாதார நிபுணர் எடுக்க வேண்டும். இது மருத்துவ நோயறிதல் அல்ல.",
+
+  "urgency.low": "குறைவு",
+  "urgency.moderate": "மிதமான",
+  "urgency.high": "கடுமையான",
+  "department.generalMedicine": "பொது மருத்துவம்",
+  "department.generalConsultation": "பொது ஆலோசனை",
+  "department.cardiology": "இதய நோய் துறை",
+  "department.emergency": "அவசரம்",
+  "department.generalSurgery": "பொது அறுவை சிகிச்சை",
+  "department.obstetricsGynaecology": "மகப்பேறு மற்றும் மகளிர் நோய்",
+  "department.pediatrics": "குழந்தை நல மருத்துவம்",
+  "department.neonatology": "பிறந்தகுழந்தை மருத்துவம்",
+  "department.maternalChildHealth": "தாய் மற்றும் குழந்தை நலம்",
+  "department.vaccination": "தடுப்பூசி",
+  "department.diagnostics": "நோய் கண்டறிதல்",
+  "department.laboratory": "ஆய்வகம்",
+  "department.pathology": "நோயியல்",
+  "department.radiology": "கதிரியக்க மருத்துவம்",
+  "department.dermatology": "தோல் நோய்",
+  "department.pharmacy": "மருந்தகம்",
+  "department.orthopedics": "எலும்பியல்",
+
   "languages.label": "மொழி",
   "languages.choose": "மொழியைத் தேர்ந்தெடுக்கவும்",
   "hospital.subtitle": "கிடைக்கக்கூடிய சுகாதார சேவைகளைக் கண்டறிந்து புரிந்துகொள்ளுங்கள். அனைத்து முடிவுகளும் டெமோ உள்ளடக்கம்.",

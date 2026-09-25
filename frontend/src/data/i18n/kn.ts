@@ -69,12 +69,14 @@ export const kn: Dictionary = {
   "voice.micUnavailable":
     "ಮೈಕ್ರೊಫೋನ್ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೈಕ್ರೊಫೋನ್ ಸಂಪರ್ಕಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   "voice.networkError":
-    "ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಸ್ಪೀಚ್ ಸೇವೆಯನ್ನು ತಲುಪಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "ಬ್ರೌಸರ್ ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು Chrome ನಲ್ಲಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ.",
+  "voice.speechServiceUnavailable":
+    "ಬ್ರೌಸರ್ ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು Chrome ನಲ್ಲಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ.",
   "voice.noSpeech": "ಯಾವುದೇ ಮಾತು ಪತ್ತೆಯಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಮಾತನಾಡಲು ಪ್ರಯತ್ನಿಸಿ.",
   "voice.unrecognized":
     "ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ನೀವು ಹೇಳಿದ್ದನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   "voice.aborted": "ರೆಕಾರ್ಡಿಂಗ್ ನಿಲ್ಲಿಸಲಾಗಿದೆ.",
-  "voice.synthesisUnavailable": "ಈ ಸಾಧನದಲ್ಲಿ ಧ್ವನಿ ಪ್ಲೇಬ್ಯಾಕ್ ಲಭ್ಯವಿಲ್ಲ.",
+  "voice.synthesisUnavailable": "ಈ ಭಾಷೆಗೆ ಈ ಸಾಧನದಲ್ಲಿ ಧ್ವನಿ ಲಭ್ಯವಿಲ್ಲ.",
   "voice.synthesisError":
     "ಉತ್ತರವನ್ನು ಪ್ಲೇ ಮಾಡುವಲ್ಲಿ ಸಮಸ್ಯೆ ಇದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   "assistant.heading": "Pulse AI ಜೊತೆ ಮಾತನಾಡಿ",
@@ -92,6 +94,39 @@ export const kn: Dictionary = {
   "assistant.reply.understand": "ಆರೋಗ್ಯದ ಮಾಹಿತಿಯನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲು ನಾನು ಸಹಾಯ ಮಾಡಬಲ್ಲೆ. ನಾನು ವೈದ್ಯನಲ್ಲ ಮತ್ತು ವೈದ್ಯಕೀಯ ಸಲಹೆ ನೀಡುವುದಿಲ್ಲ.",
   "assistant.intro.greeting": "ನಮಸ್ಕಾರ! ಆರೋಗ್ಯ ಸೇವೆಗಳನ್ನು ಕಂಡುಕೊಳ್ಳಲು ಮತ್ತು ಹಂತಗಳನ್ನು ಸರಳ ಭಾಷೆಯಲ್ಲಿ ವಿವರಿಸಲು ನಾನು ಸಹಾಯ ಮಾಡಬಲ್ಲೆ. ಇಂದು ನಿಮಗೆ ಏನು ಸಹಾಯ ಬೇಕು?",
   "assistant.transcript": "ಸರ್ಕಾರಿ ಆಸ್ಪತ್ರೆಯ ಬಗ್ಗೆ ಮಾಹಿತಿ ಬೇಕು.",
+  "assistant.reply.urgency": "ತುರ್ತು ಮಟ್ಟ: {urgency}",
+  "assistant.reply.suggestedDepartment": "ಸೂಚಿಸಿದ ವಿಭಾಗ: {departments}",
+  "assistant.reply.noMatch":
+    "ಸಿಂಥೆಟಿಕ್ ಡೆಮೊ ಡೇಟಾಸೆಟ್ನಲ್ಲಿ ಹೊಂದಾಣಿಕೆಯಾಗುವ ಆಸ್ಪತ್ರೆ ಯಾವುದೂ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹತ್ತಿರದ ಆರೋಗ್ಯ ಕೇಂದ್ರಕ್ಕೆ ಭೇಟಿ ನೀಡಿ.",
+  "assistant.reply.matchHeader": "ಹೊಂದಾಣಿಕೆಯ ಆಸ್ಪತ್ರೆಗಳು (ಸಿಂಥೆಟಿಕ್ ಡೆಮೊ ಡೇಟಾ):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} ಹಾಸಿಗೆಗಳು ಲಭ್ಯವಿದೆ",
+  "assistant.reply.emergencyAvailable": "ತುರ್ತು ಸೌಲಭ್ಯ ಲಭ್ಯವಿದೆ",
+  "assistant.reply.emergencyUnavailable": "ತುರ್ತು ಸೌಲಭ್ಯ ಲಭ್ಯವಿಲ್ಲ",
+  "assistant.reply.safety":
+    "ಔಷಧಿ ಸಂಬಂಧಿತ ನಿರ್ಧಾರಗಳನ್ನು ಅರ್ಹ ಆರೋಗ್ಯ ವೃತ್ತಿಪರರು ತೆಗೆದುಕೊಳ್ಳಬೇಕು. ಇದು ವೈದ್ಯಕೀಯ ರೋಗನಿರ್ಣಯವಲ್ಲ.",
+
+  "urgency.low": "ಕಡಿಮೆ",
+  "urgency.moderate": "ಮಧ್ಯಮ",
+  "urgency.high": "ತೀವ್ರ",
+  "department.generalMedicine": "ಸಾಮಾನ್ಯ ವೈದ್ಯಕೀಯ",
+  "department.generalConsultation": "ಸಾಮಾನ್ಯ ಸಮಾಲೋಚನೆ",
+  "department.cardiology": "ಹೃದ್ರೋಗ ವಿಭಾಗ",
+  "department.emergency": "ತುರ್ತು",
+  "department.generalSurgery": "ಸಾಮಾನ್ಯ ಶಸ್ತ್ರಚಿಕಿತ್ಸೆ",
+  "department.obstetricsGynaecology": "ಪ್ರಸೂತಿ ಮತ್ತು ಮಹಿಳಾ ರೋಗ",
+  "department.pediatrics": "ಶಿಶು ವೈದ್ಯಕೀಯ",
+  "department.neonatology": "ನವಜಾತ ಶಿಶು ವೈದ್ಯಕೀಯ",
+  "department.maternalChildHealth": "ತಾಯಿ ಮತ್ತು ಮಗುವಿನ ಆರೋಗ್ಯ",
+  "department.vaccination": "ಲಸಿಕೆ",
+  "department.diagnostics": "ರೋಗನಿರ್ಣಯ",
+  "department.laboratory": "ಪ್ರಯೋಗಾಲಯ",
+  "department.pathology": "ರೋಗಶಾಸ್ತ್ರ",
+  "department.radiology": "ವಿಕಿರಣಶಾಸ್ತ್ರ",
+  "department.dermatology": "ಚರ್ಮ ರೋಗ",
+  "department.pharmacy": "ಔಷಧಾಲಯ",
+  "department.orthopedics": "ಮೂಳೆ ವೈದ್ಯಕೀಯ",
+
   "languages.label": "ಭಾಷೆ",
   "languages.choose": "ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ",
   "hospital.subtitle": "ಲಭ್ಯವಿರುವ ಆರೋಗ್ಯ ಸೇವೆಗಳನ್ನು ಕಂಡುಕೊಳ್ಳಿ ಮತ್ತು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಿ. ಎಲ್ಲಾ ಫಲಿತಾಂಶಗಳು ಡೆಮೊ ವಿಷಯ.",

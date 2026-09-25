@@ -53,53 +53,56 @@ export function useVoiceAssistant(lang: string): VoiceAssistantControls {
 
   useEffect(() => clearTimers, [clearTimers]);
 
-  // Listening state is driven by the real recognition onstart/onend events.
+  /*
+   * The UI state is driven purely off the real recognition events so the
+   * machine can never leave the UI in a state the browser does not back up.
+   *
+   *   idle → listening (recognition.onstart)
+   *   listening → processing (session ended with a transcript)
+   *   processing → response (demo delay only)
+   *   any → error (recognition.onerror other than "aborted")
+   *   listening → idle (session ended with nothing useful)
+   */
   useEffect(() => {
+    // Unrecoverable failures (permission denied, service blocked, network,
+    // no audio, ...) always win, so the user sees why nothing was captured.
+    // "aborted" is expected when the user deliberately stops and is ignored.
+    if (error !== null && error !== "aborted") {
+      clearTimers();
+      stopRecognition();
+      setVoiceState("error");
+      return;
+    }
+
+    // Recognition is actually running (onstart fired).
     if (isListening) {
       clearTimers();
       setVoiceState("listening");
-    }
-  }, [isListening, clearTimers]);
-
-  // Recognition failures surface as an error state (except "aborted", which
-  // is expected when the user stops the session).
-  useEffect(() => {
-    if (error !== null && error !== "aborted") {
-      clearTimers();
-      setVoiceState("error");
-    }
-  }, [error, clearTimers]);
-
-  // A recording session ended — move on to processing when we actually
-  // captured words, or return to idle/error when there was nothing useful.
-  useEffect(() => {
-    if (isListening) {
       return;
     }
-    if (stateRef.current !== "listening") {
-      return;
-    }
-    if (transcript.trim().length === 0) {
-      if (error === "no-speech") {
-        setVoiceState("error");
-      } else {
+
+    // A session we started has ended: finalize a real transcript into the
+    // "response" state (picked up by the page and placed into the input),
+    // or return to idle when there was nothing useful.
+    if (stateRef.current === "listening") {
+      if (transcript.trim().length === 0) {
         setVoiceState("idle");
+        return;
       }
-      return;
+      clearTimers();
+      setVoiceState("processing");
+      const id = window.setTimeout(() => {
+        setVoiceState("response");
+      }, VOICE_TIMING.processingMs);
+      timers.current.push(id);
     }
-    clearTimers();
-    setVoiceState("processing");
-    const id = window.setTimeout(() => {
-      setVoiceState("response");
-    }, VOICE_TIMING.processingMs);
-    timers.current.push(id);
-  }, [isListening, transcript, error, clearTimers]);
+  }, [isListening, transcript, error, clearTimers, stopRecognition]);
 
   const startListening = useCallback(() => {
-    setVoiceState("listening");
+    clearTimers();
     setSessionId((current) => current + 1);
     startRecognition(langRef.current);
-  }, [startRecognition]);
+  }, [clearTimers, startRecognition]);
 
   const stopListening = useCallback(() => {
     stopRecognition();

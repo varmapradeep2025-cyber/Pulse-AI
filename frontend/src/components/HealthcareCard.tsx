@@ -60,6 +60,18 @@ export default function HealthcareCard({ facility }: HealthcareCardProps) {
           <p>
             <strong>{t("hospital.openingHours")}:</strong> {facility.openingHours}
           </p>
+          <p>
+            <strong>Emergency:</strong>{" "}
+            {facility.emergency_available ? "Available" : "Not available"}
+          </p>
+          <p>
+            <strong>Available beds:</strong> {facility.available_beds} /{" "}
+            {facility.bed_capacity} · ICU {facility.available_ICU_beds} /{" "}
+            {facility.ICU_beds}
+          </p>
+          <p>
+            <strong>Departments:</strong> {facility.departments.join(", ")}
+          </p>
           <p className="demo-note">{t("hospital.demoNote")}</p>
         </div>
       )}

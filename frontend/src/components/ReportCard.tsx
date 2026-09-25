@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { MedicalReport } from "../types/domain";
+import { getHospitalName } from "../data/hospitals";
+import { sampleDocuments } from "../data/documents";
 import { useLanguage } from "../context/LanguageContext";
 import type { TranslationKey } from "../data/translations";
 
@@ -24,6 +27,10 @@ export default function ReportCard({ report }: ReportCardProps) {
   const [viewOpen, setViewOpen] = useState(false);
   const [explainOpen, setExplainOpen] = useState(false);
 
+  const sourceDocument = sampleDocuments.find(
+    (doc) => doc.document_id === report.document_id,
+  );
+
   return (
     <article className="report-card">
       <div className="report-card__head">
@@ -38,6 +45,11 @@ export default function ReportCard({ report }: ReportCardProps) {
       <span className={`chip chip--status chip--${report.status.toLowerCase().replaceAll(" ", "-")}`}>
         {t(STATUS_KEYS[report.status])}
       </span>
+
+      <p className="report-card__meta">
+        <strong>Patient ID:</strong> {report.patient_id} (synthetic) ·{" "}
+        <strong>Hospital:</strong> {getHospitalName(report.hospital_id)}
+      </p>
 
       <div className="report-card__actions">
         <button
@@ -61,6 +73,24 @@ export default function ReportCard({ report }: ReportCardProps) {
       {viewOpen && (
         <div className="report-card__panel">
           <h4>{t("report.preview")}</h4>
+          <p>
+            <strong>Report ID:</strong> {report.report_id} ·{" "}
+            <strong>Hospital:</strong> {getHospitalName(report.hospital_id)}
+          </p>
+          <p>
+            <strong>Source document:</strong>{" "}
+            {sourceDocument
+              ? `${sourceDocument.document_name} (${report.document_id})`
+              : report.document_id}{" "}
+            ·{" "}
+            <Link to="/documents" className="report-card__link">
+              view in Documents
+            </Link>
+          </p>
+          <p>
+            <strong>Patient ID:</strong> {report.patient_id} (synthetic) ·{" "}
+            <strong>Issued by:</strong> {report.issued_by}
+          </p>
           <p className="demo-note">{t("report.demoNoteView")}</p>
         </div>
       )}

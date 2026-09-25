@@ -1,12 +1,10 @@
 import { Link, useParams } from "react-router-dom";
-import { sampleFacilities } from "../data/facilities";
+import { getHospitalById, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
 
 export default function HospitalDetailsPage() {
   const { id } = useParams<{ id: string }>();
 
-  const facility = sampleFacilities.find(
-    (item) => item.id === id,
-  );
+  const facility = getHospitalById(id);
 
   if (!facility) {
     return (
@@ -45,21 +43,55 @@ export default function HospitalDetailsPage() {
           padding: "28px",
         }}
       >
-        <h1>🏥 {facility.name}</h1>
+        <h1>🏥 {facility.hospital_name}</h1>
+
+        <p>
+          <strong>Hospital ID:</strong>{" "}
+          {facility.hospital_id}
+        </p>
 
         <p>
           <strong>Facility Type:</strong>{" "}
-          {facility.facilityType}
+          {facility.hospital_type}
         </p>
 
         <p>
           <strong>Location:</strong>{" "}
-          {facility.location}
+          {facility.city}, {facility.state}
+        </p>
+
+        <p>
+          <strong>Address:</strong>{" "}
+          {facility.address}
+        </p>
+
+        <p>
+          <strong>Phone:</strong> {facility.phone}
+        </p>
+
+        <p>
+          <strong>Emergency:</strong>{" "}
+          {facility.emergency_available
+            ? "Available 24 hours"
+            : "Not available — contact a nearby emergency-capable facility"}
         </p>
 
         <p>
           <strong>Availability:</strong>{" "}
           {facility.availability}
+        </p>
+
+        <p>
+          <strong>Bed capacity:</strong>{" "}
+          {facility.bed_capacity} beds ·{" "}
+          <strong>Available:</strong>{" "}
+          {facility.available_beds}
+        </p>
+
+        <p>
+          <strong>ICU:</strong>{" "}
+          {facility.available_ICU_beds} /{" "}
+          {facility.ICU_beds} available
         </p>
 
         <hr />
@@ -68,6 +100,18 @@ export default function HospitalDetailsPage() {
 
         {facility.services.map((service) => (
           <p key={service}>• {service}</p>
+        ))}
+
+        <h2>Departments</h2>
+
+        {facility.departments.map((department) => (
+          <p key={department}>• {department}</p>
+        ))}
+
+        <h2>Specialties</h2>
+
+        {facility.specialties.map((specialty) => (
+          <p key={specialty}>• {specialty}</p>
         ))}
 
         <h2>Opening Hours</h2>
@@ -84,11 +128,13 @@ export default function HospitalDetailsPage() {
               border: "1px solid #fed7aa",
             }}
           >
-            <strong>Prototype Demo Facility</strong>
+            <strong>{SYNTHETIC_DATA_LABEL}</strong>
 
             <p>
-              This facility uses fictional demo data
-              for the Pulse AI prototype.
+              This facility record is fictional and was
+              created for the Pulse AI demo. It is not a
+              real hospital, real capacity figure, or
+              real contact number.
             </p>
           </div>
         )}

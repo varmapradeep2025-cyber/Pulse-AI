@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { sampleFacilities } from "../data/facilities";
+import { syntheticHospitals, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
 import { useLanguage } from "../context/LanguageContext";
 import { useSimpleMode } from "../context/SimpleModeContext";
 import HealthcareCard from "../components/HealthcareCard";
@@ -40,19 +40,31 @@ const FACILITY_TYPE_KEYS: Record<
 
 const LOCATION_OPTIONS: Array<{
   value: string;
-  labelKey: TranslationKey;
+  label: string;
 }> = [
   {
     value: "Any location",
-    labelKey: "hospital.anyLocation",
+    label: "Any location",
   },
   {
-    value: "Demo City",
-    labelKey: "hospital.demoCity",
+    value: "Gwalior",
+    label: "Gwalior",
   },
   {
-    value: "Demo District",
-    labelKey: "hospital.demoDistrict",
+    value: "Indore",
+    label: "Indore",
+  },
+  {
+    value: "Bhopal",
+    label: "Bhopal",
+  },
+  {
+    value: "Jabalpur",
+    label: "Jabalpur",
+  },
+  {
+    value: "Ujjain",
+    label: "Ujjain",
   },
 ];
 
@@ -135,7 +147,7 @@ export default function HospitalsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return sampleFacilities.filter(
+    return syntheticHospitals.filter(
       (facility) => {
         /*
          * 1. Search matching
@@ -271,7 +283,7 @@ export default function HospitalsPage() {
   const facilityTypes = useMemo(() => {
     const types = new Set<FacilityType>();
 
-    sampleFacilities.forEach(
+    syntheticHospitals.forEach(
       (facility) => {
         types.add(
           facility.facilityType,
@@ -323,12 +335,12 @@ export default function HospitalsPage() {
         }}
       >
         <strong>
-          Prototype information:
+          {SYNTHETIC_DATA_LABEL}:
         </strong>{" "}
         Hospital records shown here are
-        demonstration data. In deployment,
-        this portal can be connected to
-        verified healthcare-facility data.
+        fictional synthetic data created for
+        this demo. They are not real hospital
+        capacity figures or contact details.
       </div>
 
       {/* Healthcare Need Selector */}
@@ -452,9 +464,7 @@ export default function HospitalsPage() {
                   key={option.value}
                   value={option.value}
                 >
-                  {t(
-                    option.labelKey,
-                  )}
+                  {option.label}
                 </option>
               ),
             )}

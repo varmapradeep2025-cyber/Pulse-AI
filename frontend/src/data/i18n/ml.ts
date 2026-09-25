@@ -69,12 +69,14 @@ export const ml: Dictionary = {
   "voice.micUnavailable":
     "മൈക്രോഫോൺ ലഭ്യമല്ല. ദയവായി മൈക്രോഫോൺ കണക്റ്റ് ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.",
   "voice.networkError":
-    "സംഭാഷണ തിരിച്ചറിയലിന് സ്പീച്ച് സേവനത്തിൽ എത്താൻ കഴിഞ്ഞില്ല. ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.",
+    "ബ്രൗസർ വോയ്സ് തിരിച്ചറിയൽ ഇപ്പോൾ ലഭ്യമല്ല. ദയവായി Chrome-ൽ വീണ്ടും ശ്രമിക്കുക അല്ലെങ്കിൽ ടൈപ്പ് ചെയ്യുക.",
+  "voice.speechServiceUnavailable":
+    "ബ്രൗസർ വോയ്സ് തിരിച്ചറിയൽ ഇപ്പോൾ ലഭ്യമല്ല. ദയവായി Chrome-ൽ വീണ്ടും ശ്രമിക്കുക അല്ലെങ്കിൽ ടൈപ്പ് ചെയ്യുക.",
   "voice.noSpeech": "ഒരു സംഭാഷണവും കണ്ടെത്തിയില്ല. ദയവായി വീണ്ടും സംസാരിക്കാൻ ശ്രമിക്കുക.",
   "voice.unrecognized":
     "നിങ്ങൾ പറഞ്ഞത് സംഭാഷണ തിരിച്ചറിയലിന് മനസ്സിലാക്കാൻ കഴിഞ്ഞില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
   "voice.aborted": "റെക്കോർഡിംഗ് നിർത്തി.",
-  "voice.synthesisUnavailable": "ഈ ഉപകരണത്തിൽ വോയ്സ് പ്ലേബാക്ക് ലഭ്യമല്ല.",
+  "voice.synthesisUnavailable": "ഈ ഭാഷയ്ക്ക് ഈ ഉപകരണത്തിൽ ശബ്ദം ലഭ്യമല്ല.",
   "voice.synthesisError":
     "ഉത്തരം പ്ലേ ചെയ്യുന്നതിൽ പ്രശ്നമുണ്ട്. ദയവായി വീണ്ടും ശ്രമിക്കുക.",
   "assistant.heading": "Pulse AI-യോട് സംസാരിക്കുക",
@@ -92,6 +94,39 @@ export const ml: Dictionary = {
   "assistant.reply.understand": "ആരോഗ്യ വിവരങ്ങൾ മനസ്സിലാക്കാൻ എനിക്ക് സഹായിക്കാം. ഞാൻ ഡോക്ടറല്ല, വൈദ്യോപദേശം നൽകുന്നില്ല.",
   "assistant.intro.greeting": "നമസ്കാരം! ആരോഗ്യ സേവനങ്ങൾ കണ്ടെത്താനും ഘട്ടങ്ങൾ ലളിതഭാഷയിൽ വിശദീകരിക്കാനും എനിക്ക് സഹായിക്കാനാകും. ഇന്ന് എനിക്ക് എന്ത് സഹായിക്കാം?",
   "assistant.transcript": "എനിക്ക് ഒരു സർക്കാർ ആശുപത്രിയെക്കുറിച്ചുള്ള വിവരം വേണം.",
+  "assistant.reply.urgency": "അടിയന്തരാവസ്ഥ നില: {urgency}",
+  "assistant.reply.suggestedDepartment": "നിർദ്ദേശിക്കുന്ന വകുപ്പ്: {departments}",
+  "assistant.reply.noMatch":
+    "സിന്തറ്റിക് ഡെമോ ഡാറ്റാസെറ്റിൽ പൊരുത്തപ്പെടുന്ന ആശുപത്രി ഒന്നും കണ്ടെത്തിയില്ല. ദയവായി നിങ്ങളുടെ അടുത്തുള്ള ആരോഗ്യ കേന്ദ്രം സന്ദർശിക്കുക.",
+  "assistant.reply.matchHeader": "പൊരുത്തപ്പെടുന്ന ആശുപത്രികൾ (സിന്തറ്റിക് ഡെമോ ഡാറ്റ):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} കിടക്കകൾ ലഭ്യം",
+  "assistant.reply.emergencyAvailable": "അടിയന്തര സൗകര്യം ലഭ്യം",
+  "assistant.reply.emergencyUnavailable": "അടിയന്തര സൗകര്യം ലഭ്യമല്ല",
+  "assistant.reply.safety":
+    "മരുന്ന് സംബന്ധിച്ച തീരുമാനങ്ങൾ യോഗ്യതയുള്ള ആരോഗ്യ പ്രൊഫഷണലാണ് എടുക്കേണ്ടത്. ഇത് മെഡിക്കൽ രോഗനിർണയമല്ല.",
+
+  "urgency.low": "കുറവ്",
+  "urgency.moderate": "മിതമായ",
+  "urgency.high": "ഗുരുതരമായ",
+  "department.generalMedicine": "പൊതുചികിത്സ",
+  "department.generalConsultation": "പൊതു കൂടിയാലോചന",
+  "department.cardiology": "ഹൃദ്രോഗ വിഭാഗം",
+  "department.emergency": "അടിയന്തരം",
+  "department.generalSurgery": "പൊതു ശസ്ത്രക്രിയ",
+  "department.obstetricsGynaecology": "പ്രസവ ശാസ്ത്രവും സ്ത്രീരോഗവും",
+  "department.pediatrics": "ശിശുരോഗ വിഭാഗം",
+  "department.neonatology": "നവജാതശിശു രോഗ വിഭാഗം",
+  "department.maternalChildHealth": "മാതൃ-ശിശു ആരോഗ്യം",
+  "department.vaccination": "പ്രതിരോധ കുത്തിവയ്പ്പ്",
+  "department.diagnostics": "രോഗനിർണയം",
+  "department.laboratory": "പരീക്ഷണശാല",
+  "department.pathology": "രോഗപഠനം",
+  "department.radiology": "വികിരണശാസ്ത്രം",
+  "department.dermatology": "ചർമ്മരോഗ വിഭാഗം",
+  "department.pharmacy": "മരുന്നുകട",
+  "department.orthopedics": "അസ്ഥിരോഗ വിഭാഗം",
+
   "languages.label": "ഭാഷ",
   "languages.choose": "ഭാഷ തിരഞ്ഞെടുക്കുക",
   "hospital.subtitle": "ലഭ്യമായ ആരോഗ്യ സേവനങ്ങൾ കണ്ടെത്തി മനസ്സിലാക്കുക. എല്ലാ ഫലങ്ങളും ഡെമോ ഉള്ളടക്കം.",

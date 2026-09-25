@@ -80,13 +80,15 @@ export const en = {
   "voice.micUnavailable":
     "Microphone is not available. Please connect a microphone and try again.",
   "voice.networkError":
-    "Speech recognition could not reach the speech service. Please check your internet connection and try again.",
+    "Browser speech recognition is currently unavailable. Please try Chrome again or use text input.",
+  "voice.speechServiceUnavailable":
+    "Browser speech recognition is currently unavailable. Please try Chrome again or use text input.",
   "voice.noSpeech": "No speech was detected. Please try speaking again.",
   "voice.unrecognized":
     "Speech recognition could not understand what you said. Please try again.",
   "voice.aborted": "Recording was stopped.",
   "voice.synthesisUnavailable":
-    "Voice playback is not available on this device.",
+    "A voice for this language is not available on this device.",
   "voice.synthesisError":
     "There was a problem playing the response. Please try again.",
 
@@ -110,6 +112,38 @@ export const en = {
   "assistant.intro.greeting":
     "Namaste! I can help you find healthcare services and explain the steps in simple language. What can I help you with today?",
   "assistant.transcript": "I need information about a government hospital.",
+  "assistant.reply.urgency": "Urgency: {urgency}",
+  "assistant.reply.suggestedDepartment": "Suggested department: {departments}",
+  "assistant.reply.noMatch":
+    "No matching hospitals were found in the synthetic demo dataset. Please visit your nearest healthcare facility.",
+  "assistant.reply.matchHeader": "Matching hospitals (synthetic demo data):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} beds available",
+  "assistant.reply.emergencyAvailable": "Emergency available",
+  "assistant.reply.emergencyUnavailable": "Emergency not available",
+  "assistant.reply.safety":
+    "Medication decisions should be made by a qualified healthcare professional. This is not a medical diagnosis.",
+
+  "urgency.low": "LOW",
+  "urgency.moderate": "MODERATE",
+  "urgency.high": "HIGH",
+  "department.generalMedicine": "General Medicine",
+  "department.generalConsultation": "General Consultation",
+  "department.cardiology": "Cardiology",
+  "department.emergency": "Emergency",
+  "department.generalSurgery": "General Surgery",
+  "department.obstetricsGynaecology": "Obstetrics & Gynaecology",
+  "department.pediatrics": "Pediatrics",
+  "department.neonatology": "Neonatology",
+  "department.maternalChildHealth": "Maternal & Child Health",
+  "department.vaccination": "Vaccination",
+  "department.diagnostics": "Diagnostics",
+  "department.laboratory": "Laboratory",
+  "department.pathology": "Pathology",
+  "department.radiology": "Radiology",
+  "department.dermatology": "Dermatology",
+  "department.pharmacy": "Pharmacy",
+  "department.orthopedics": "Orthopedics",
 
   "languages.label": "Language",
   "languages.choose": "Choose Language",

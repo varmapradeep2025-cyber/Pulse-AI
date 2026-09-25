@@ -69,12 +69,14 @@ export const mr: Dictionary = {
   "voice.micUnavailable":
     "मायक्रोफोन उपलब्ध नाही. कृपया मायक्रोफोन जोडा आणि पुन्हा प्रयत्न करा.",
   "voice.networkError":
-    "व्हॉइस ओळख व्हॉइस सेवेपर्यंत पोहोचू शकली नाही. कृपया इंटरनेट कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.",
+    "ब्राउझर व्हॉइस ओळख सध्या उपलब्ध नाही. कृपया Chrome वापरून पुन्हा प्रयत्न करा किंवा टाइप करा.",
+  "voice.speechServiceUnavailable":
+    "ब्राउझर व्हॉइस ओळख सध्या उपलब्ध नाही. कृपया Chrome वापरून पुन्हा प्रयत्न करा किंवा टाइप करा.",
   "voice.noSpeech": "कोणतेही बोलणे आढळले नाही. कृपया पुन्हा बोलण्याचा प्रयत्न करा.",
   "voice.unrecognized":
     "व्हॉइस ओळख तुम्ही काय म्हणालात हे समजू शकली नाही. कृपया पुन्हा प्रयत्न करा.",
   "voice.aborted": "रेकॉर्डिंग थांबवले.",
-  "voice.synthesisUnavailable": "या डिव्हाइसवर व्हॉइस प्लेबॅक उपलब्ध नाही.",
+  "voice.synthesisUnavailable": "या भाषेसाठी या डिव्हाइसवर व्हॉइस उपलब्ध नाही.",
   "voice.synthesisError":
     "उत्तर वाजवताना समस्या आली. कृपया पुन्हा प्रयत्न करा.",
   "assistant.heading": "Pulse AI शी बोला",
@@ -92,6 +94,39 @@ export const mr: Dictionary = {
   "assistant.reply.understand": "आरोग्याची माहिती समजून घेण्यास मी मदत करू शकतो. मी डॉक्टर नाही आणि वैद्यकीय सल्ला देत नाही.",
   "assistant.intro.greeting": "नमस्कार! आरोग्य सेवा शोधण्यात आणि पायऱ्या सोप्या भाषेत समजावण्यात मी मदत करू शकतो. आज मी तुम्हाला कशी मदत करू?",
   "assistant.transcript": "मला एका सरकारी रुग्णालयाबद्दल माहिती हवी आहे.",
+  "assistant.reply.urgency": "गंभीरता: {urgency}",
+  "assistant.reply.suggestedDepartment": "सुचवलेला विभाग: {departments}",
+  "assistant.reply.noMatch":
+    "सिंथेटिक डेमो डेटासेटमध्ये जुळणारे रुग्णालय सापडले नाही. कृपया तुमच्या सर्वात जवळच्या आरोग्य सुविधेला भेट द्या.",
+  "assistant.reply.matchHeader": "जुळणारी रुग्णालये (सिंथेटिक डेमो डेटा):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} बेड उपलब्ध",
+  "assistant.reply.emergencyAvailable": "आपत्कालीन सुविधा उपलब्ध",
+  "assistant.reply.emergencyUnavailable": "आपत्कालीन सुविधा उपलब्ध नाही",
+  "assistant.reply.safety":
+    "औषधांसंबंधी निर्णय पात्र आरोग्य व्यावसायिकानेच करावेत. हे वैद्यकीय निदान नाही.",
+
+  "urgency.low": "कमी",
+  "urgency.moderate": "मध्यम",
+  "urgency.high": "गंभीर",
+  "department.generalMedicine": "सामान्य वैद्यकीय",
+  "department.generalConsultation": "सामान्य सल्ला",
+  "department.cardiology": "हृदयरोग विभाग",
+  "department.emergency": "आपत्कालीन",
+  "department.generalSurgery": "सामान्य शस्त्रक्रिया",
+  "department.obstetricsGynaecology": "प्रसूती व स्त्रीरोग",
+  "department.pediatrics": "बालरोग",
+  "department.neonatology": "नवजात बालरोग",
+  "department.maternalChildHealth": "माता व बाल आरोग्य",
+  "department.vaccination": "लसीकरण",
+  "department.diagnostics": "निदान चाचणी",
+  "department.laboratory": "प्रयोगशाळा",
+  "department.pathology": "विकृतिविज्ञान",
+  "department.radiology": "किरणविज्ञान",
+  "department.dermatology": "त्वचारोग",
+  "department.pharmacy": "औषधालय",
+  "department.orthopedics": "हाडरोग विभाग",
+
   "languages.label": "भाषा",
   "languages.choose": "भाषा निवडा",
   "hospital.subtitle": "उपलब्ध आरोग्य सेवा शोधा आणि समजून घ्या. सर्व निकाल डेमो सामग्री आहेत.",

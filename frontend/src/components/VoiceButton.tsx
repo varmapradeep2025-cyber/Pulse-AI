@@ -34,11 +34,16 @@ export default function VoiceButton({
         ? t("voice.understandingAria")
         : label ?? t("voice.talkAria");
 
+  const title =
+    state === "listening" ? t("voice.listeningAria") : label ?? t("voice.talkAria");
+
   return (
     <button
       type="button"
       className={`voice-button voice-button--${size}${stateClass}`}
       aria-label={ariaLabel}
+      aria-pressed={state === "listening"}
+      title={title}
       onClick={onPress}
       disabled={disabled}
     >

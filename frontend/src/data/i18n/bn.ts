@@ -69,12 +69,14 @@ export const bn: Dictionary = {
   "voice.micUnavailable":
     "মাইক্রোফোন উপলব্ধ নেই। অনুগ্রহ করে একটি মাইক্রোফোন সংযুক্ত করুন এবং আবার চেষ্টা করুন।",
   "voice.networkError":
-    "বক্তৃতা স্বীকৃতি স্পিচ সার্ভিসে পৌঁছাতে পারেনি। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন এবং আবার চেষ্টা করুন।",
+    "ব্রাউজার ভয়েস শনাক্তকরণ এখন উপলব্ধ নেই। অনুগ্রহ করে Chrome-এ আবার চেষ্টা করুন বা টাইপ করে লিখুন।",
+  "voice.speechServiceUnavailable":
+    "ব্রাউজার ভয়েস শনাক্তকরণ এখন উপলব্ধ নেই। অনুগ্রহ করে Chrome-এ আবার চেষ্টা করুন বা টাইপ করে লিখুন।",
   "voice.noSpeech": "কোনো কথা শোনা যায়নি। অনুগ্রহ করে আবার কথা বলার চেষ্টা করুন।",
   "voice.unrecognized":
     "বক্তৃতা স্বীকৃতি আপনি যা বলেছেন তা বুঝতে পারেনি। অনুগ্রহ করে আবার চেষ্টা করুন।",
   "voice.aborted": "রেকর্ডিং বন্ধ করা হয়েছে।",
-  "voice.synthesisUnavailable": "এই ডিভাইসে ভয়েস প্লেব্যাক উপলব্ধ নয়।",
+  "voice.synthesisUnavailable": "এই ভাষার জন্য এই ডিভাইসে কণ্ঠস্বর পাওয়া যায় না।",
   "voice.synthesisError":
     "উত্তর বাজাতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
   "assistant.heading": "Pulse AI-এর সাথে কথা বলুন",
@@ -92,6 +94,39 @@ export const bn: Dictionary = {
   "assistant.reply.understand": "আমি স্বাস্থ্য তথ্য বুঝতে সাহায্য করতে পারি। আমি ডাক্তার নই এবং চিকিৎসা পরামর্শ দিই না।",
   "assistant.intro.greeting": "নমস্কার! আমি স্বাস্থ্যসেবা খুঁজতে এবং ধাপগুলো সহজ ভাষায় বোঝাতে সাহায্য করতে পারি। আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?",
   "assistant.transcript": "আমার একটি সরকারি হাসপাতাল সম্পর্কে তথ্য দরকার।",
+  "assistant.reply.urgency": "জরুরি মাত্রা: {urgency}",
+  "assistant.reply.suggestedDepartment": "প্রস্তাবিত বিভাগ: {departments}",
+  "assistant.reply.noMatch":
+    "সিন্থেটিক ডেমো ডেটাসেটে কোনো মিলে যাওয়া হাসপাতাল পাওয়া যায়নি। অনুগ্রহ করে আপনার নিকটস্থ স্বাস্থ্যকেন্দ্রে যান।",
+  "assistant.reply.matchHeader": "মিলে যাওয়া হাসপাতাল (সিন্থেটিক ডেমো ডেটা):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds}টি বেড উপলব্ধ",
+  "assistant.reply.emergencyAvailable": "জরুরি সেবা উপলব্ধ",
+  "assistant.reply.emergencyUnavailable": "জরুরি সেবা উপলব্ধ নয়",
+  "assistant.reply.safety":
+    "ওষুধ সংক্রান্ত সিদ্ধান্ত একজন যোগ্য স্বাস্থ্যসেবা পেশাদার দ্বারা নেওয়া উচিত। এটি কোনো চিকিৎসা নির্ণয় নয়।",
+
+  "urgency.low": "কম",
+  "urgency.moderate": "মাঝারি",
+  "urgency.high": "গুরুতর",
+  "department.generalMedicine": "সাধারণ চিকিৎসা",
+  "department.generalConsultation": "সাধারণ পরামর্শ",
+  "department.cardiology": "হৃদরোগ বিভাগ",
+  "department.emergency": "জরুরি",
+  "department.generalSurgery": "সাধারণ সার্জারি",
+  "department.obstetricsGynaecology": "প্রসূতি ও স্ত্রীরোগ",
+  "department.pediatrics": "শিশুরোগ",
+  "department.neonatology": "নবজাতক রোগ",
+  "department.maternalChildHealth": "মাতৃ ও শিশু স্বাস্থ্য",
+  "department.vaccination": "টিকাদান",
+  "department.diagnostics": "রোগনির্ণয়",
+  "department.laboratory": "পরীক্ষাগার",
+  "department.pathology": "রোগতত্ত্ব",
+  "department.radiology": "রেডিওলজি",
+  "department.dermatology": "চর্মরোগ",
+  "department.pharmacy": "ঔষধালয়",
+  "department.orthopedics": "অস্থিরোগ বিভাগ",
+
   "languages.label": "ভাষা",
   "languages.choose": "ভাষা নির্বাচন করুন",
   "hospital.subtitle": "উপলব্ধ স্বাস্থ্যসেবা খুঁজুন ও বুঝুন। সব ফলাফল ডেমো তথ্য।",

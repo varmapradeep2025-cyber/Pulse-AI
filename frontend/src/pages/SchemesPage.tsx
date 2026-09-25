@@ -1,25 +1,96 @@
 import { useMemo, useState } from "react";
-import { sampleSchemes } from "../data/schemes";
+import { Link } from "react-router-dom";
+import {
+  SCHEME_CATEGORIES,
+  SCHEMES_SYNTHETIC_LABEL,
+  sampleSchemes,
+  SCHEME_SCOPES,
+} from "../data/schemes";
+import { demoCitizenProfile } from "../data/demoCitizen";
+import {
+  matchSchemesForCitizen,
+  type SchemeMatch,
+} from "../data/schemeEligibility";
 import { useLanguage } from "../context/LanguageContext";
 import { useSimpleMode } from "../context/SimpleModeContext";
 import SchemeCard from "../components/SchemeCard";
 import EmptyState from "../components/EmptyState";
+import type { SchemeCategory, SchemeScope } from "../types/domain";
 
-const SCHEME_FILTERS = [
-  "All",
-  "Low-income families",
-  "Pregnant women",
-  "Senior citizens",
-  "Children",
-] as const;
+type CategoryFilter = SchemeCategory | "All";
+type ScopeFilter = SchemeScope | "All";
+type MatchTab = "not-started" | "running";
+
+function MatchReasons({ match }: { match: SchemeMatch }) {
+  const { scheme, outcome, reasons } = match;
+
+  const outcomeText =
+    outcome === "eligible"
+      ? "Potentially relevant — basic criteria matched on the provided info."
+      : outcome === "more-info"
+        ? "More information required to complete the basic check."
+        : "Basic criteria not met based on the demo information.";
+
+  return (
+    <div className="scheme-match">
+      <div className="scheme-match__head">
+        <Link to={`/schemes/${scheme.scheme_id}`}>
+          <strong>{scheme.name}</strong>
+        </Link>
+        <span
+          className={`chip chip--match chip--match--${outcome}`}
+        >
+          {outcome === "eligible"
+            ? "Potential match"
+            : outcome === "more-info"
+              ? "More info needed"
+              : "Criteria not met"}
+        </span>
+      </div>
+
+      <p className="scheme-match__outcome">{outcomeText}</p>
+
+      <ul className="scheme-match__reasons">
+        {reasons.matched.map((reason) => (
+          <li key={`matched-${reason}`}>
+            <span className="scheme-match__icon scheme-match__icon--ok">✓</span>{" "}
+            {reason} matched
+          </li>
+        ))}
+
+        {reasons.notMet.map((reason) => (
+          <li key={`notmet-${reason}`}>
+            <span className="scheme-match__icon scheme-match__icon--bad">✕</span>{" "}
+            {reason} — criterion not met based on demo information
+          </li>
+        ))}
+
+        {reasons.unknown.map((reason) => (
+          <li key={`unknown-${reason}`}>
+            <span className="scheme-match__icon scheme-match__icon--warn">•</span>{" "}
+            {reason} — more information required
+          </li>
+        ))}
+
+        {reasons.missingDocuments.map((name) => (
+          <li key={`missing-${name}`}>
+            <span className="scheme-match__icon scheme-match__icon--warn">⚠</span>{" "}
+            Additional document required: {name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function SchemesPage() {
   const { t } = useLanguage();
   const { tx } = useSimpleMode();
 
   const [query, setQuery] = useState("");
-  const [filter, setFilter] =
-    useState<(typeof SCHEME_FILTERS)[number]>("All");
+  const [category, setCategory] = useState<CategoryFilter>("All");
+  const [scope, setScope] = useState<ScopeFilter>("All");
+  const [matchTab, setMatchTab] = useState<MatchTab>("not-started");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -28,39 +99,31 @@ export default function SchemesPage() {
       const matchesSearch =
         q.length === 0 ||
         scheme.name.toLowerCase().includes(q) ||
+        scheme.short_description.toLowerCase().includes(q) ||
         scheme.whoIsFor.toLowerCase().includes(q) ||
-        scheme.documents.some((doc) =>
+        scheme.required_documents.some((doc) =>
           doc.toLowerCase().includes(q),
+        ) ||
+        scheme.eligibility_rules.some((rule) =>
+          rule.toLowerCase().includes(q),
         );
 
-      const who = scheme.whoIsFor.toLowerCase();
+      const matchesCategory =
+        category === "All" || scheme.category === category;
 
-      let matchesFilter = true;
+      const matchesScope =
+        scope === "All" || scheme.scope === scope;
 
-      if (filter === "Low-income families") {
-        matchesFilter = who.includes("low-income");
-      }
-
-      if (filter === "Pregnant women") {
-        matchesFilter = who.includes("pregnant");
-      }
-
-      if (filter === "Senior citizens") {
-        matchesFilter = who.includes("senior");
-      }
-
-      if (filter === "Children") {
-        matchesFilter = who.includes("children");
-      }
-
-      return matchesSearch && matchesFilter;
+      return matchesSearch && matchesCategory && matchesScope;
     });
-  }, [query, filter]);
+  }, [query, category, scope]);
 
-  const heading = tx(
-    "action.schemes",
-    "scheme.simple",
+  const matches = useMemo(
+    () => matchSchemesForCitizen(sampleSchemes),
+    [],
   );
+
+  const heading = tx("action.schemes", "scheme.simple");
 
   return (
     <div className="container page">
@@ -71,7 +134,7 @@ export default function SchemesPage() {
         <p>{t("scheme.subtitle")}</p>
       </header>
 
-      {/* Prototype notice */}
+      {/* Synthetic demo notice */}
       <div
         style={{
           marginBottom: "20px",
@@ -83,12 +146,96 @@ export default function SchemesPage() {
           fontSize: "14px",
         }}
       >
-        <strong>Prototype information:</strong>{" "}
-        The schemes shown here are demonstration
-        records. In deployment, Pulse AI can be
-        connected to verified government scheme
-        information and official application portals.
+        <strong>{SCHEMES_SYNTHETIC_LABEL}:</strong>{" "}
+        The schemes shown here are real, publicly-documented
+        government schemes presented from a synthetic demo
+        dataset. Pulse AI does not approve, sanction, or
+        guarantee any government benefit — the official
+        government source is the final authority.
       </div>
+
+      {/* Find schemes for me */}
+      <section
+        style={{
+          marginBottom: "24px",
+          padding: "16px",
+          borderRadius: "12px",
+          border: "1px solid #d1e7dd",
+          background: "#f6fcf9",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <strong style={{ fontSize: "16px" }}>
+              Find schemes for me
+            </strong>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: "13px",
+                color: "#3f4c48",
+              }}
+            >
+              Compares the{" "}
+              <strong>{demoCitizenProfile.label}</strong>{" "}
+              profile (DEMO-001 · Madhya Pradesh · 32 yrs ·
+              Very low income · General category) with the
+              scheme dataset. This is a prototype match —
+              it is not an official eligibility check.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() =>
+              setMatchTab((current) =>
+                current === "running"
+                  ? "not-started"
+                  : "running",
+              )
+            }
+          >
+            {matchTab === "running" ? "Hide matches" : "Find schemes for me"}
+          </button>
+        </div>
+
+        {matchTab === "running" && (
+          <div
+            style={{
+              marginTop: "14px",
+              borderTop: "1px solid #d1e7dd",
+              paddingTop: "14px",
+              display: "grid",
+              gap: "14px",
+            }}
+            role="status"
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              Potentially relevant schemes (based on the demo
+              profile):
+            </p>
+
+            {matches.map((match) => (
+              <MatchReasons key={match.scheme.scheme_id} match={match} />
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Search */}
       <label className="search">
@@ -106,30 +253,64 @@ export default function SchemesPage() {
         />
       </label>
 
-      {/* Filters */}
+      {/* Category filters */}
       <div
         className="filters"
         role="group"
-        aria-label="Filter government schemes"
+        aria-label="Filter government schemes by category"
         style={{
           marginTop: "16px",
         }}
       >
-        {SCHEME_FILTERS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={`chip chip--filter${
-              filter === option
-                ? " chip--active"
-                : ""
-            }`}
-            aria-pressed={filter === option}
-            onClick={() => setFilter(option)}
-          >
-            {option}
-          </button>
-        ))}
+        {(["All", ...SCHEME_CATEGORIES] as CategoryFilter[]).map(
+          (option) => (
+            <button
+              key={option}
+              type="button"
+              className={`chip chip--filter${
+                category === option
+                  ? " chip--active"
+                  : ""
+              }`}
+              aria-pressed={category === option}
+              onClick={() => setCategory(option)}
+            >
+              {option === "All" ? "All categories" : option}
+            </button>
+          ),
+        )}
+      </div>
+
+      {/* Scope filters */}
+      <div
+        className="filters"
+        role="group"
+        aria-label="Filter government schemes by scope"
+        style={{
+          marginTop: "10px",
+        }}
+      >
+        {(["All", ...SCHEME_SCOPES] as ScopeFilter[]).map(
+          (option) => (
+            <button
+              key={option}
+              type="button"
+              className={`chip chip--filter${
+                scope === option
+                  ? " chip--active"
+                  : ""
+              }`}
+              aria-pressed={scope === option}
+              onClick={() => setScope(option)}
+            >
+              {option === "All"
+                ? "Central & State"
+                : option === "Central"
+                  ? "Central"
+                  : "State-specific (MP)"}
+            </button>
+          ),
+        )}
       </div>
 
       {/* Result count */}

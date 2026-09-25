@@ -9,6 +9,8 @@ import type { TranslationKey } from "../data/translations";
 interface NavItem {
   to: string;
   labelKey: TranslationKey;
+  /* Hardcoded override — used for features without a UI-translation key. */
+  label?: string;
   end?: boolean;
 }
 
@@ -20,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/documents", labelKey: "nav.documents" },
   { to: "/reports", labelKey: "nav.reports" },
   { to: "/assistant", labelKey: "nav.assistant" },
+  { to: "/intelligence", labelKey: "nav.home", label: "Hospital Intel" },
 ];
 
 export default function Navbar() {
@@ -57,7 +60,7 @@ export default function Navbar() {
                     `navbar__link${isActive ? " navbar__link--active" : ""}`
                   }
                 >
-                  {t(item.labelKey)}
+                  {item.label ?? t(item.labelKey)}
                 </NavLink>
               </li>
             ))}
@@ -90,7 +93,7 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   className={() => `navbar__mobile-link`}
                 >
-                  {t(item.labelKey)}
+                  {item.label ?? t(item.labelKey)}
                 </NavLink>
               </li>
             ))}

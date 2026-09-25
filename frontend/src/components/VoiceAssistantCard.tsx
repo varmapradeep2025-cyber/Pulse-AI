@@ -40,17 +40,19 @@ export default function VoiceAssistantCard({ compact = false }: VoiceAssistantCa
   };
 
   const statusText =
-    voiceState === "listening"
-      ? t("voice.listening")
-      : voiceState === "processing"
-        ? t("voice.processing")
-        : voiceState === "response"
-          ? transcript.trim().length > 0
-            ? t("voice.understood")
-            : tx("voice.tapToSpeak", "voice.simple")
-          : voiceState === "error"
-            ? t(recognitionErrorKey(error ?? "unknown"))
-            : tx("voice.tapToSpeak", "voice.simple");
+    !isSupported
+      ? ""
+      : voiceState === "listening"
+        ? t("voice.listening")
+        : voiceState === "processing"
+          ? t("voice.processing")
+          : voiceState === "response"
+            ? transcript.trim().length > 0
+              ? t("voice.understood")
+              : tx("voice.tapToSpeak", "voice.simple")
+            : voiceState === "error"
+              ? t(recognitionErrorKey(error ?? "unknown"))
+              : tx("voice.tapToSpeak", "voice.simple");
 
   const replyText = t(
     ASSISTANT_REPLY_KEYS[replyIndex % ASSISTANT_REPLY_KEYS.length],
@@ -73,6 +75,12 @@ export default function VoiceAssistantCard({ compact = false }: VoiceAssistantCa
         label={t("voice.tapToSpeak")}
         disabled={!isSupported}
       />
+
+      {!isSupported && (
+        <p className="voice-card__error" role="alert">
+          {t("voice.notSupported")}
+        </p>
+      )}
 
       <p className="voice-card__status" aria-live="polite">
         {statusText}

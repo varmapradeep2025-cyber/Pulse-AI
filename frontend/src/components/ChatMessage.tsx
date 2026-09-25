@@ -13,7 +13,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         {isUser ? "🙂" : "🏥"}
       </span>
       <div className="chat-message__body">
-        <p className="chat-message__text">
+        <p className="chat-message__text" style={{ whiteSpace: "pre-line" }}>
           {isUser && message.source === "voice" && (
             <span className="chat-message__voice" aria-hidden="true">
               🎤{" "}

@@ -69,12 +69,14 @@ export const gu: Dictionary = {
   "voice.micUnavailable":
     "માઇક્રોફોન ઉપલબ્ધ નથી. કૃપા કરીને માઇક્રોફોન કનેક્ટ કરીને ફરી પ્રયાસ કરો.",
   "voice.networkError":
-    "વૉઇસ ઓળખ સ્પીચ સેવા સુધી પહોંચી શકી નહીં. કૃપા કરીને તમારું ઇન્ટરનેટ કનેક્શન તપાસીને ફરી પ્રયાસ કરો.",
+    "બ્રાઉઝર વૉઇસ ઓળખ હાલમાં ઉપલબ્ધ નથી. કૃપા કરીને Chrome માં ફરી પ્રયાસ કરો અથવા ટાઇપ કરો.",
+  "voice.speechServiceUnavailable":
+    "બ્રાઉઝર વૉઇસ ઓળખ હાલમાં ઉપલબ્ધ નથી. કૃપા કરીને Chrome માં ફરી પ્રયાસ કરો અથવા ટાઇપ કરો.",
   "voice.noSpeech": "કોઈ બોલાચાલી મળી નથી. કૃપા કરીને ફરીથી બોલવાનો પ્રયાસ કરો.",
   "voice.unrecognized":
     "વૉઇસ ઓળખ તમે જે કહ્યું તે સમજી શકી નહીં. કૃપા કરીને ફરી પ્રયાસ કરો.",
   "voice.aborted": "રેકોર્ડિંગ બંધ કરવામાં આવ્યું.",
-  "voice.synthesisUnavailable": "આ ઉપકરણ પર વૉઇસ પ્લેબેક ઉપલબ્ધ નથી.",
+  "voice.synthesisUnavailable": "આ ભાષા માટે આ ઉપકરણ પર વૉઇસ ઉપલબ્ધ નથી.",
   "voice.synthesisError":
     "જવાબ વગાડવામાં સમસ્યા આવી. કૃપા કરીને ફરી પ્રયાસ કરો.",
   "assistant.heading": "Pulse AI સાથે વાત કરો",
@@ -92,6 +94,39 @@ export const gu: Dictionary = {
   "assistant.reply.understand": "આરોગ્ય માહિતી સમજવામાં હું મદદ કરી શકું છું. હું ડૉક્ટર નથી અને તબીબી સલાહ આપતો નથી.",
   "assistant.intro.greeting": "નમસ્તે! આરોગ્ય સેવાઓ શોધવામાં અને પગલાં સરળ ભાષામાં સમજાવવામાં હું મદદ કરી શકું છું. આજે હું તમારી કેવી રીતે મદદ કરી શકું?",
   "assistant.transcript": "મને એક સરકારી હોસ્પિટલ વિશે માહિતી જોઈએ છે.",
+  "assistant.reply.urgency": "તાત્કાલિકતા: {urgency}",
+  "assistant.reply.suggestedDepartment": "સૂચવાયેલ વિભાગ: {departments}",
+  "assistant.reply.noMatch":
+    "સિન્થેટિક ડેમો ડેટાસેટમાં કોઈ મેળ ખાતું હોસ્પિટલ મળ્યું નથી. કૃપા કરીને તમારી સૌથી નજીકની આરોગ્ય સુવિધાની મુલાકાત લો.",
+  "assistant.reply.matchHeader": "મેળ ખાતી હોસ્પિટલો (સિન્થેટિક ડેમો ડેટા):",
+  "assistant.reply.hospitalLine":
+    "• {name} ({city}) — {departments} — {emergency}, {beds} બેડ ઉપલબ્ધ",
+  "assistant.reply.emergencyAvailable": "ઈમરજન્સી સુવિધા ઉપલબ્ધ",
+  "assistant.reply.emergencyUnavailable": "ઈમરજન્સી સુવિધા ઉપલબ્ધ નથી",
+  "assistant.reply.safety":
+    "દવા સંબંધિત નિર્ણય લાયકાત ધરાવતા આરોગ્ય વ્યાવસાયિક દ્વારા લેવા જોઈએ. આ તબીબી નિદાન નથી.",
+
+  "urgency.low": "નીચું",
+  "urgency.moderate": "મધ્યમ",
+  "urgency.high": "ગંભીર",
+  "department.generalMedicine": "સામાન્ય દવા",
+  "department.generalConsultation": "સામાન્ય પરામર્શ",
+  "department.cardiology": "હૃદય રોગ વિભાગ",
+  "department.emergency": "ઈમરજન્સી",
+  "department.generalSurgery": "સામાન્ય સર્જરી",
+  "department.obstetricsGynaecology": "પ્રસૂતિ અને સ્ત્રીરોગ",
+  "department.pediatrics": "બાળરોગ",
+  "department.neonatology": "નવજાત શિશુ રોગ",
+  "department.maternalChildHealth": "માતા અને બાળ આરોગ્ય",
+  "department.vaccination": "રસીકરણ",
+  "department.diagnostics": "રોગ નિદાન",
+  "department.laboratory": "પ્રયોગશાળા",
+  "department.pathology": "પેથોલોજી",
+  "department.radiology": "રેડિયોલોજી",
+  "department.dermatology": "ત્વચા રોગ",
+  "department.pharmacy": "ફાર્મસી",
+  "department.orthopedics": "અસ્થિરોગ વિભાગ",
+
   "languages.label": "ભાષા",
   "languages.choose": "ભાષા પસંદ કરો",
   "hospital.subtitle": "ઉપલબ્ધ આરોગ્ય સેવાઓ શોધો અને સમજો. બધા પરિણામો ડેમો સામગ્રી છે.",

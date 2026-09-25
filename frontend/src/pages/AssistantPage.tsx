@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { useLanguage } from "../context/LanguageContext";
-import { useSimpleMode } from "../context/SimpleModeContext";
 import { useVoiceAssistant } from "../hooks/useVoiceAssistant";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import { getSpeechLocale } from "../data/voiceLocales";
@@ -13,11 +12,27 @@ import LanguageSelector from "../components/LanguageSelector";
 import ChatMessage from "../components/ChatMessage";
 import Disclaimer from "../components/Disclaimer";
 
-import { sampleFacilities } from "../data/facilities";
+import { syntheticHospitals } from "../data/hospitals";
+import {
+  matchHospitalNeeds,
+  formatMatchReply,
+} from "../data/hospitalMatching";
+import type { HospitalMatchResult } from "../data/hospitalMatching";
 
 import type { AssistantMessage } from "../types/domain";
 
 let messageCounter = 0;
+
+/*
+ * Quick-start examples. Picking one starts a full triage flow.
+ */
+const QUICK_START_CHIPS = [
+  "I have a fever and cold",
+  "I have chest pain",
+  "I need a routine checkup",
+  "I think I have a fracture",
+  "I need a dengue test",
+];
 
 function makeMessage(
   role: AssistantMessage["role"],
@@ -39,83 +54,15 @@ function makeMessage(
 }
 
 /*
- * Simple Phase 1 symptom → healthcare-service matching.
+ * Handle a user message using the synthetic hospital matcher.
  *
  * IMPORTANT:
- * This is NOT diagnosis.
- * It only helps the user discover relevant healthcare facilities
- * based on keywords in their message.
+ * This is NOT diagnosis. It only maps symptoms to a basic urgency
+ * level and suggests relevant hospital facilities from the
+ * synthetic demo dataset.
  */
-function getMatchedFacilities(userText: string) {
-  const text = userText.toLowerCase();
-
-  let preferredServices: string[] = [];
-
-  if (
-    text.includes("fever") ||
-    text.includes("cold") ||
-    text.includes("cough") ||
-    text.includes("weakness") ||
-    text.includes("headache")
-  ) {
-    preferredServices = ["OPD"];
-  }
-
-  if (
-    text.includes("emergency") ||
-    text.includes("accident") ||
-    text.includes("injury") ||
-    text.includes("bleeding") ||
-    text.includes("breathing")
-  ) {
-    preferredServices = ["Emergency"];
-  }
-
-  if (
-    text.includes("test") ||
-    text.includes("diagnostic") ||
-    text.includes("blood test") ||
-    text.includes("x-ray")
-  ) {
-    preferredServices = ["Diagnostics"];
-  }
-
-  if (
-    text.includes("pregnancy") ||
-    text.includes("pregnant") ||
-    text.includes("maternal")
-  ) {
-    preferredServices = ["Maternal care"];
-  }
-
-  if (
-    text.includes("medicine") ||
-    text.includes("pharmacy")
-  ) {
-    preferredServices = ["Pharmacy"];
-  }
-
-  // If no specific keyword is detected,
-  // show general healthcare facilities.
-  if (preferredServices.length === 0) {
-    return sampleFacilities.slice(0, 3);
-  }
-
-  const matched = sampleFacilities.filter((facility) =>
-    facility.services.some((service) =>
-      preferredServices.includes(service),
-    ),
-  );
-
-  // Fallback if no exact service match exists.
-  return matched.length > 0
-    ? matched.slice(0, 5)
-    : sampleFacilities.slice(0, 3);
-}
-
 export default function AssistantPage() {
-  const { t, language } = useLanguage();
-  const { tx } = useSimpleMode();
+  const { t, format, language } = useLanguage();
 
   const locale = getSpeechLocale(language.code);
 
@@ -132,8 +79,10 @@ export default function AssistantPage() {
   const [draft, setDraft] = useState("");
 
   const [matchedFacilities, setMatchedFacilities] = useState(
-    sampleFacilities.slice(0, 3),
+    syntheticHospitals.slice(0, 3),
   );
+
+  const [triage, setTriage] = useState<HospitalMatchResult | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -153,6 +102,16 @@ export default function AssistantPage() {
     voice.interimTranscript,
   ]);
 
+  const previousLanguageCodeRef = useRef(language.code);
+
+  useEffect(() => {
+    if (previousLanguageCodeRef.current === language.code) {
+      return;
+    }
+    previousLanguageCodeRef.current = language.code;
+    speech.stop();
+  }, [language.code, speech]);
+
   const appendMessage = (
     message: AssistantMessage,
   ) => {
@@ -170,22 +129,31 @@ export default function AssistantPage() {
       makeMessage("user", userText),
     );
 
-    const facilities = getMatchedFacilities(
-      userText,
-    );
+    const result = matchHospitalNeeds(userText);
 
-    setMatchedFacilities(facilities);
+    setMatchedFacilities(result.matchedHospitals);
+    setTriage(result);
 
     appendMessage(
       makeMessage(
         "assistant",
-        "Based on the information you provided, here are healthcare facilities that may be relevant. This is not a medical diagnosis or a medicine prescription.",
+        formatMatchReply(result, format),
       ),
     );
   };
 
   /*
-   * Handle recognized voice input.
+   * Start a flow from a quick-start chip.
+   */
+  const handleQuickStart = (text: string) => {
+    respondToUser(text);
+
+    setDraft("");
+  };
+
+  /*
+   * Put a finished voice session's transcript into the input box so the user
+   * can review/edit it and press Send. The voice session is NOT auto-submitted.
    */
   useEffect(() => {
     if (
@@ -197,28 +165,17 @@ export default function AssistantPage() {
       handledVoiceSessionRef.current =
         voice.sessionId;
 
-      const transcript =
-        voice.transcript.trim();
+      const transcript = voice.transcript.trim();
 
-      appendMessage(
-        makeMessage(
-          "user",
-          transcript,
-          "voice",
-        ),
-      );
-
-      const facilities =
-        getMatchedFacilities(transcript);
-
-      setMatchedFacilities(facilities);
-
-      appendMessage(
-        makeMessage(
-          "assistant",
-          "Based on your message, I found some healthcare facilities that may be relevant. Please consult a qualified healthcare professional for medical advice.",
-        ),
-      );
+      setDraft((current) => {
+        const trimmed = current.trim();
+        if (trimmed.includes(transcript)) {
+          return current;
+        }
+        return trimmed
+          ? `${trimmed} ${transcript}`
+          : transcript;
+      });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,6 +268,115 @@ export default function AssistantPage() {
         </div>
       </header>
 
+      {/* VOICE INPUT */}
+      <section
+        className="assistant__voice"
+        aria-label={t("home.speakVoice")}
+      >
+        {voice.isSupported ? (
+          <>
+            <div className="assistant__voice-control">
+              <VoiceButton
+                state={voice.voiceState}
+                onPress={handleMic}
+                label={t("voice.tapToSpeak")}
+                disabled={!voice.isSupported}
+              />
+
+              <div
+                className="assistant__voice-feedback"
+                aria-live="polite"
+              >
+                <p className="assistant__mic-label">
+                  {voice.voiceState === "listening"
+                    ? `🔴 ${t("voice.listening")}`
+                    : voice.voiceState === "processing"
+                      ? `⏳ ${t("voice.processing")}`
+                      : `🎙️ ${t("home.speakVoice")}`}
+                </p>
+
+                <p className="assistant__permission-hint">
+                  {voice.voiceState === "listening" &&
+                  voice.interimTranscript
+                    ? `“${voice.interimTranscript}”`
+                    : t("voice.permissionHint")}
+                </p>
+              </div>
+            </div>
+
+            {voice.voiceState === "error" &&
+              voice.error && (
+                <p
+                  className="voice-error"
+                  role="alert"
+                >
+                  ⚠️{" "}
+                  {t(
+                    recognitionErrorKey(
+                      voice.error,
+                    ),
+                  )}
+                </p>
+              )}
+          </>
+        ) : (
+          <div className="assistant__voice-control">
+            <p className="voice-error" role="alert">
+              ⚠️ {t("voice.notSupported")}
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* QUICK-START */}
+      <section
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "13px",
+            color: "#64748b",
+          }}
+        >
+          Try:
+        </span>
+
+        {QUICK_START_CHIPS.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() =>
+              handleQuickStart(chip)
+            }
+            style={{
+              padding: "7px 12px",
+              borderRadius: "999px",
+              border: "1px solid #cbd5e1",
+              background: "#fff",
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            {chip}
+          </button>
+        ))}
+
+        <span
+          style={{
+            fontSize: "12px",
+            color: "#94a3b8",
+            marginLeft: "auto",
+          }}
+        >
+          Demo triage — not a diagnosis
+        </span>
+      </section>
+
       {/* CHAT */}
       <section
         className="chat"
@@ -323,39 +389,100 @@ export default function AssistantPage() {
           />
         ))}
 
-        {voice.voiceState ===
-          "listening" && (
-          <p
-            className="chat__status"
-            aria-live="polite"
-          >
-            {t("voice.listening")}
-          </p>
-        )}
-
-        {voice.voiceState ===
-          "processing" && (
-          <p
-            className="chat__status"
-            aria-live="polite"
-          >
-            {t("voice.processing")}
-          </p>
-        )}
-
-        {voice.voiceState ===
-          "listening" &&
-          voice.interimTranscript && (
-            <p
-              className="chat__transcript"
-              aria-live="polite"
-            >
-              “{voice.interimTranscript}”
-            </p>
-          )}
-
         <div ref={messagesEndRef} />
       </section>
+
+      {/* TRIAGE PANEL */}
+      {triage && (
+        <section
+          style={{
+            marginTop: "30px",
+            padding: "18px 20px",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 700,
+                marginRight: "2px",
+              }}
+            >
+              Assistant triage
+            </span>
+
+            <span
+              style={{
+                padding: "4px 10px",
+                borderRadius: "999px",
+                fontSize: "12px",
+                fontWeight: 700,
+                color:
+                  triage.urgency === "HIGH"
+                    ? "#991b1b"
+                    : triage.urgency === "MODERATE"
+                      ? "#854d0e"
+                      : "#166534",
+                background:
+                  triage.urgency === "HIGH"
+                    ? "#fee2e2"
+                    : triage.urgency === "MODERATE"
+                      ? "#fef3c7"
+                      : "#dcfce7",
+              }}
+            >
+              Urgency: {triage.urgency}
+            </span>
+
+            <span
+              style={{
+                fontSize: "13px",
+                color: "#475569",
+              }}
+            >
+              · {triage.matchedHospitals.length} matching facilities · department:
+            </span>
+
+            {triage.suggestedDepartments.map(
+              (department) => (
+                <span
+                  key={department}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    background: "#eef2ff",
+                    color: "#3730a3",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {department}
+                </span>
+              ),
+            )}
+          </div>
+
+          <p
+            style={{
+              margin: "10px 0 0",
+              fontSize: "12px",
+              color: "#94a3b8",
+            }}
+          >
+            Urgency is a basic keyword heuristics for the demo. It is not a
+            medical assessment — {triage.urgency === "HIGH" ? "seek emergency care immediately if needed." : "see a healthcare professional for a proper assessment."}
+          </p>
+        </section>
+      )}
 
       {/* MATCHED HOSPITALS */}
       <section
@@ -399,7 +526,7 @@ export default function AssistantPage() {
             (facility) => (
               <Link
                 key={facility.id}
-                to="/hospitals"
+                to={`/hospitals/${facility.id}`}
                 style={{
                   textDecoration: "none",
                   color: "inherit",
@@ -501,6 +628,23 @@ export default function AssistantPage() {
                     {facility.location}
                   </p>
 
+                  {/* EMERGENCY + BEDS */}
+                  <p
+                    style={{
+                      margin: "0 0 12px",
+                      fontSize: "13px",
+                      color: "#17332a",
+                    }}
+                  >
+                    🚨{" "}
+                    {facility.emergency_available
+                      ? "Emergency available"
+                      : "No emergency unit"}{" "}
+                    · 🛏️{" "}
+                    {facility.available_beds}{" "}
+                    beds available
+                  </p>
+
                   {/* SERVICES */}
                   <div
                     style={{
@@ -563,8 +707,8 @@ export default function AssistantPage() {
                         "14px",
                     }}
                   >
-                    View healthcare
-                    facilities →
+                    View hospital details
+                    →
                   </div>
                 </article>
               </Link>
@@ -595,45 +739,6 @@ export default function AssistantPage() {
           )}
         </p>
       )}
-
-      {voice.voiceState === "error" &&
-        voice.error && (
-          <p
-            className="voice-error"
-            role="alert"
-          >
-            {t(
-              recognitionErrorKey(
-                voice.error,
-              ),
-            )}
-          </p>
-        )}
-
-      {/* MICROPHONE */}
-      <div className="assistant__mic-area">
-        <VoiceButton
-          state={voice.voiceState}
-          onPress={handleMic}
-          label={t(
-            "voice.tapToSpeak",
-          )}
-          disabled={!voice.isSupported}
-        />
-
-        <p className="assistant__mic-label">
-          {tx(
-            "voice.tapToSpeak",
-            "voice.simple",
-          )}
-        </p>
-
-        <p className="assistant__permission-hint">
-          {t(
-            "voice.permissionHint",
-          )}
-        </p>
-      </div>
 
       {/* TEXT INPUT */}
       <form
