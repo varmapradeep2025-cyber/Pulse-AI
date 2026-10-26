@@ -6,6 +6,11 @@ import healthRouter from "./routes/health.js";
 import dbTestRouter from "./routes/dbtest.js";
 import scenarioRouter from "./routes/scenario.js";
 import intelligenceRouter from "./routes/intelligence.js";
+import {
+  appointmentRouter,
+  staffAppointmentRouter,
+} from "./routes/appointments.js";
+import inventoryImportRouter from "./routes/inventoryImport.js";
 const app = express();
 
 app.use(cors());
@@ -15,6 +20,9 @@ app.use(healthRouter);
 app.use(dbTestRouter);
 app.use(scenarioRouter);
 app.use(intelligenceRouter);
+app.use("/api/appointments", appointmentRouter);
+app.use("/api/staff/appointments", staffAppointmentRouter);
+app.use("/api/staff/inventory", inventoryImportRouter);
 
 app.listen(env.PORT, env.HOST, () => {
   console.log(

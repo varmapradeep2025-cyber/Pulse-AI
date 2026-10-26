@@ -1,9 +1,14 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signIn } from "../lib/auth";
+import { ROUTES } from "../routes";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from =
+    (location.state as { from?: string } | null)?.from ?? ROUTES.citizen;
+  const isHospitalAccess = from.startsWith(ROUTES.hospital);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +23,7 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-      navigate("/dashboard");
+      navigate(from, { replace: true });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to sign in."
@@ -33,6 +38,13 @@ export default function LoginPage() {
       <div className="auth-card">
         <h1>Welcome back</h1>
         <p>Sign in to your Pulse AI account.</p>
+
+        {isHospitalAccess && (
+          <p className="demo-note">
+            Demo access: most hospital pages are not role-restricted. The staff
+            Queue still requires an authorized appointment staff account.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit}>
           <label>
@@ -64,7 +76,13 @@ export default function LoginPage() {
 
         <p>
           Don't have an account?{" "}
-          <Link to="/signup">Create one</Link>
+          <Link to="/signup" state={{ from }}>
+            Create one
+          </Link>
+        </p>
+
+        <p>
+          <Link to={ROUTES.home}>← Back to Pulse AI home</Link>
         </p>
       </div>
     </main>

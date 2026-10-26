@@ -5,6 +5,7 @@ import { getHospitalName } from "../data/hospitals";
 import { sampleDocuments } from "../data/documents";
 import { useLanguage } from "../context/LanguageContext";
 import type { TranslationKey } from "../data/translations";
+import { ROUTES } from "../routes";
 
 const REPORT_TYPE_KEYS: Record<MedicalReport["reportType"], TranslationKey> = {
   "Blood Test": "report.type.blood",
@@ -83,7 +84,7 @@ export default function ReportCard({ report }: ReportCardProps) {
               ? `${sourceDocument.document_name} (${report.document_id})`
               : report.document_id}{" "}
             ·{" "}
-            <Link to="/documents" className="report-card__link">
+            <Link to={ROUTES.citizenDocuments} className="report-card__link">
               view in Documents
             </Link>
           </p>

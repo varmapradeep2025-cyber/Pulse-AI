@@ -17,6 +17,7 @@ import {
   type EligibilityResult,
 } from "../data/schemeEligibility";
 import EmptyState from "../components/EmptyState";
+import { ROUTES } from "../routes";
 
 const PHASE_STYLES: Record<
   SchemeTrackingPhase,
@@ -93,7 +94,7 @@ export default function SchemeDetailsPage() {
           description="The scheme you are looking for does not exist."
         />
         <p style={{ marginTop: "16px" }}>
-          <Link className="btn btn--secondary" to="/schemes">
+          <Link className="btn btn--secondary" to={ROUTES.citizenSchemes}>
             ← Back to all schemes
           </Link>
         </p>
@@ -137,7 +138,7 @@ export default function SchemeDetailsPage() {
   };
 
   const openDocumentsPortal = (documentName: string) => {
-    navigate("/documents", {
+    navigate(ROUTES.citizenDocuments, {
       state: {
         schemeUpload: {
           documentName,
@@ -151,7 +152,7 @@ export default function SchemeDetailsPage() {
   return (
     <div className="container page">
       <p style={{ marginBottom: "12px" }}>
-        <Link className="btn btn--secondary" to="/schemes">
+        <Link className="btn btn--secondary" to={ROUTES.citizenSchemes}>
           ← Back to all schemes
         </Link>
       </p>

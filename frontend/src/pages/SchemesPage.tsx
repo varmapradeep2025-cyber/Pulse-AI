@@ -16,6 +16,7 @@ import { useSimpleMode } from "../context/SimpleModeContext";
 import SchemeCard from "../components/SchemeCard";
 import EmptyState from "../components/EmptyState";
 import type { SchemeCategory, SchemeScope } from "../types/domain";
+import { citizenSchemePath } from "../routes";
 
 type CategoryFilter = SchemeCategory | "All";
 type ScopeFilter = SchemeScope | "All";
@@ -34,7 +35,7 @@ function MatchReasons({ match }: { match: SchemeMatch }) {
   return (
     <div className="scheme-match">
       <div className="scheme-match__head">
-        <Link to={`/schemes/${scheme.scheme_id}`}>
+        <Link to={citizenSchemePath(scheme.scheme_id)}>
           <strong>{scheme.name}</strong>
         </Link>
         <span

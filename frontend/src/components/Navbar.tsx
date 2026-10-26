@@ -1,40 +1,59 @@
-import { Link, NavLink } from "react-router-dom";
-import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { useSimpleMode } from "../context/SimpleModeContext";
 import LanguageSelector from "./LanguageSelector";
 import SimpleModeToggle from "./SimpleModeToggle";
-import type { TranslationKey } from "../data/translations";
+import {
+  CITIZEN_NAV_ITEMS,
+  HOSPITAL_NAV_ITEMS,
+  HOME_NAV_ITEMS,
+  ROUTES,
+  isNavItemActive,
+  type PortalNavItem,
+} from "../routes";
 
-interface NavItem {
-  to: string;
-  labelKey: TranslationKey;
-  /* Hardcoded override — used for features without a UI-translation key. */
-  label?: string;
-  end?: boolean;
-}
+export type NavbarVariant = "home" | "citizen" | "hospital";
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/", labelKey: "nav.home", end: true },
-  { to: "/dashboard", labelKey: "nav.dashboard" },
-  { to: "/hospitals", labelKey: "nav.healthcare" },
-  { to: "/schemes", labelKey: "nav.schemes" },
-  { to: "/documents", labelKey: "nav.documents" },
-  { to: "/reports", labelKey: "nav.reports" },
-  { to: "/assistant", labelKey: "nav.assistant" },
-  { to: "/intelligence", labelKey: "nav.home", label: "Hospital Intel" },
-];
+const NAV_ITEMS: Record<NavbarVariant, readonly PortalNavItem[]> = {
+  home: HOME_NAV_ITEMS,
+  citizen: CITIZEN_NAV_ITEMS,
+  hospital: HOSPITAL_NAV_ITEMS,
+};
 
-export default function Navbar() {
+const PORTAL_SWITCH: Record<
+  NavbarVariant,
+  { to: string; label: string } | null
+> = {
+  home: null,
+  citizen: { to: ROUTES.hospital, label: "Hospital Portal" },
+  hospital: { to: ROUTES.citizen, label: "Citizen Portal" },
+};
+
+export default function Navbar({
+  variant = "home",
+}: {
+  variant?: NavbarVariant;
+}) {
   const { t } = useLanguage();
   const { simpleMode } = useSimpleMode();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const items = NAV_ITEMS[variant];
+  const portalSwitch = PORTAL_SWITCH[variant];
+  const navigationLabel =
+    variant === "home" ? "Main navigation" : `${variant} portal navigation`;
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   return (
-    <header className="navbar">
+    <header className={`navbar navbar--${variant}`}>
       <div className="navbar__inner container">
         <Link
-          to="/"
+          to={ROUTES.home}
           className="navbar__brand"
           aria-label={`Pulse AI ${t("nav.home")}`}
         >
@@ -46,28 +65,49 @@ export default function Navbar() {
             {simpleMode && (
               <span className="navbar__badge">{t("simpleMode.badge")}</span>
             )}
+            {variant === "hospital" && (
+              <span
+                className="navbar__demo-badge"
+                title="Most hospital pages are demo views. The staff Queue requires authorization."
+              >
+                Demo access
+              </span>
+            )}
           </span>
         </Link>
 
-        <nav className="navbar__nav" aria-label="Main navigation">
+        <nav className="navbar__nav" aria-label={navigationLabel}>
           <ul className="navbar__links">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    `navbar__link${isActive ? " navbar__link--active" : ""}`
-                  }
-                >
-                  {item.label ?? t(item.labelKey)}
-                </NavLink>
-              </li>
-            ))}
+            {items.map((item) => {
+              const active = isNavItemActive(item, pathname);
+
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    aria-current={active ? "page" : undefined}
+                    className={`navbar__link${
+                      active ? " navbar__link--active" : ""
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
         <div className="navbar__tools">
+          {portalSwitch && (
+            <Link
+              to={portalSwitch.to}
+              className="navbar__portal-switch"
+              aria-label={`Switch to ${portalSwitch.label}`}
+            >
+              {portalSwitch.label}
+            </Link>
+          )}
           <SimpleModeToggle />
           <LanguageSelector compact />
           <button
@@ -85,18 +125,35 @@ export default function Navbar() {
       {menuOpen && (
         <nav className="navbar__mobile" aria-label="Mobile navigation">
           <ul className="navbar__mobile-links">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
+            {items.map((item) => {
+              const active = isNavItemActive(item, pathname);
+
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setMenuOpen(false)}
+                    className={`navbar__mobile-link${
+                      active ? " navbar__mobile-link--active" : ""
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+            {portalSwitch && (
+              <li>
+                <Link
+                  to={portalSwitch.to}
                   onClick={() => setMenuOpen(false)}
-                  className={() => `navbar__mobile-link`}
+                  className="navbar__mobile-switch"
                 >
-                  {item.label ?? t(item.labelKey)}
-                </NavLink>
+                  Switch to {portalSwitch.label}
+                </Link>
               </li>
-            ))}
+            )}
           </ul>
         </nav>
       )}

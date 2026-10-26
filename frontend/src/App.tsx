@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "./context/LanguageContext";
 import { SimpleModeProvider } from "./context/SimpleModeContext";
 import Layout from "./components/Layout";
+import PortalLayout from "./components/PortalLayout";
+import LegacyRedirect from "./components/LegacyRedirect";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import LandingPage from "./pages/LandingPage";
@@ -14,8 +16,17 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DocumentsPage from "./pages/DocumentsPage";
 import ReportsPage from "./pages/ReportsPage";
 import AssistantPage from "./pages/AssistantPage";
+import AppointmentsPage from "./pages/AppointmentsPage";
+import HospitalQueuePage from "./pages/HospitalQueuePage";
+import InventoryImportPage from "./pages/InventoryImportPage";
 import IntelligencePage from "./pages/IntelligencePage";
+import ResourceBridgePage from "./pages/ResourceBridgePage";
 import NotFoundPage from "./pages/NotFoundPage";
+import {
+  ROUTES,
+  citizenHospitalPath,
+  citizenSchemePath,
+} from "./routes";
 
 export default function App() {
   return (
@@ -23,32 +34,113 @@ export default function App() {
       <SimpleModeProvider>
         <BrowserRouter>
           <Routes>
-  <Route element={<Layout />}>
-    {/* Public routes */}
-    <Route path="/login" element={<LoginPage />} />
-    <Route path="/signup" element={<SignupPage />} />
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/hospitals" element={<HospitalsPage />} />
-    <Route
-  path="/hospitals/:id"
-  element={<HospitalDetailsPage />}
-/>
-    <Route path="/schemes" element={<SchemesPage />} />
-    <Route path="/schemes/:id" element={<SchemeDetailsPage />} />
+            <Route element={<Layout />}>
+              <Route path={ROUTES.home} element={<LandingPage />} />
+              <Route path={ROUTES.login} element={<LoginPage />} />
+              <Route path={ROUTES.signup} element={<SignupPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
 
-    {/* Protected routes */}
-    <Route element={<ProtectedRoute />}>
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/documents" element={<DocumentsPage />} />
-      <Route path="/reports" element={<ReportsPage />} />
-      <Route path="/intelligence" element={<IntelligencePage />} />
-      <Route path="/assistant" element={<AssistantPage />} />
-    </Route>
+            <Route element={<PortalLayout portal="citizen" />}>
+              <Route path={ROUTES.citizen} element={<HospitalsPage />} />
+              <Route
+                path={ROUTES.citizenHospitalDetails}
+                element={<HospitalDetailsPage />}
+              />
+              <Route path={ROUTES.citizenSchemes} element={<SchemesPage />} />
+              <Route
+                path={ROUTES.citizenSchemeDetails}
+                element={<SchemeDetailsPage />}
+              />
 
-    {/* 404 */}
-    <Route path="*" element={<NotFoundPage />} />
-  </Route>
-</Routes>
+              <Route element={<ProtectedRoute />}>
+                <Route
+                  path={ROUTES.citizenAppointments}
+                  element={<AppointmentsPage />}
+                />
+                <Route
+                  path={ROUTES.citizenDocuments}
+                  element={<DocumentsPage />}
+                />
+                <Route
+                  path={ROUTES.citizenReports}
+                  element={<ReportsPage />}
+                />
+                <Route path={ROUTES.assistant} element={<AssistantPage />} />
+              </Route>
+
+              <Route path="/citizen/*" element={<NotFoundPage />} />
+            </Route>
+
+            <Route element={<PortalLayout portal="hospital" />}>
+              <Route element={<ProtectedRoute />}>
+                <Route path={ROUTES.hospital} element={<DashboardPage />} />
+                <Route
+                  path={ROUTES.hospitalQueue}
+                  element={<HospitalQueuePage />}
+                />
+                <Route
+                  path={ROUTES.hospitalInventoryImport}
+                  element={<InventoryImportPage />}
+                />
+                <Route
+                  path={ROUTES.hospitalIntelligence}
+                  element={<IntelligencePage />}
+                />
+                <Route
+                  path={ROUTES.hospitalResourceBridge}
+                  element={<ResourceBridgePage />}
+                />
+              </Route>
+
+              <Route path="/hospital/*" element={<NotFoundPage />} />
+            </Route>
+
+            <Route
+              path="/dashboard"
+              element={<LegacyRedirect to={ROUTES.hospital} />}
+            />
+            <Route
+              path="/intelligence"
+              element={<LegacyRedirect to={ROUTES.hospitalIntelligence} />}
+            />
+            <Route
+              path="/resource-bridge"
+              element={<LegacyRedirect to={ROUTES.hospitalResourceBridge} />}
+            />
+            <Route
+              path="/hospitals"
+              element={<LegacyRedirect to={ROUTES.citizen} />}
+            />
+            <Route
+              path="/hospitals/:id"
+              element={
+                <LegacyRedirect
+                  to={(params) => citizenHospitalPath(params.id ?? "")}
+                />
+              }
+            />
+            <Route
+              path="/schemes"
+              element={<LegacyRedirect to={ROUTES.citizenSchemes} />}
+            />
+            <Route
+              path="/schemes/:id"
+              element={
+                <LegacyRedirect
+                  to={(params) => citizenSchemePath(params.id ?? "")}
+                />
+              }
+            />
+            <Route
+              path="/documents"
+              element={<LegacyRedirect to={ROUTES.citizenDocuments} />}
+            />
+            <Route
+              path="/reports"
+              element={<LegacyRedirect to={ROUTES.citizenReports} />}
+            />
+          </Routes>
         </BrowserRouter>
       </SimpleModeProvider>
     </LanguageProvider>

@@ -17,6 +17,7 @@ import {
   saveScenarioReport,
 } from "../data/scenarioReports";
 import type { ScenarioReport } from "../data/scenarioReports";
+import { ROUTES } from "../routes";
 
 const SCENARIOS: Array<{
   id: number;
@@ -167,7 +168,7 @@ export default function DashboardPage() {
           titleKey="action.hospitals"
           titleSimpleKey="action.hospitals.simple"
           descriptionKey="action.hospitals.desc"
-          to="/hospitals"
+          to={ROUTES.citizen}
         />
 
         <ActionCard
@@ -175,7 +176,7 @@ export default function DashboardPage() {
           titleKey="action.schemes"
           titleSimpleKey="action.schemes.simple"
           descriptionKey="action.schemes.desc"
-          to="/schemes"
+          to={ROUTES.citizenSchemes}
         />
 
         <ActionCard
@@ -183,7 +184,7 @@ export default function DashboardPage() {
           titleKey="action.documents"
           titleSimpleKey="action.documents.simple"
           descriptionKey="action.documents.desc"
-          to="/documents"
+          to={ROUTES.citizenDocuments}
         />
 
         <ActionCard
@@ -191,7 +192,7 @@ export default function DashboardPage() {
           titleKey="action.reports"
           titleSimpleKey="action.reports.simple"
           descriptionKey="action.reports.desc"
-          to="/reports"
+          to={ROUTES.citizenReports}
         />
 
         <ActionCard
@@ -199,7 +200,7 @@ export default function DashboardPage() {
           titleKey="assistant.heading"
           titleSimpleKey="action.assistant.simple"
           descriptionKey="action.assistant.desc"
-          to="/assistant"
+          to={ROUTES.assistant}
           variant="primary"
         />
       </div>
@@ -224,7 +225,7 @@ export default function DashboardPage() {
           The ML demand forecast identifies which hospital and medicine stock
           needs attention first — with a recommended action for each item.
         </p>
-        <Link to="/intelligence" className="btn btn--primary">
+        <Link to={ROUTES.hospitalIntelligence} className="btn btn--primary">
           Open Hospital Intelligence
         </Link>
       </section>
@@ -342,7 +343,7 @@ export default function DashboardPage() {
                 (simulation {savedReport.id}).
               </span>
               <Link
-                to="/reports"
+                to={ROUTES.citizenReports}
                 className="report-card__link"
               >
                 View in Reports Portal →
@@ -371,6 +372,24 @@ export default function DashboardPage() {
               >
                 <p style={{ marginTop: 0, fontWeight: 600 }}>
                   {summary.headline}
+                </p>
+
+                <p
+                  style={{
+                    margin: "6px 0",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    background:
+                      response.source === "demo" ? "#fef3c7" : "#ecfdf5",
+                    color:
+                      response.source === "demo" ? "#92400e" : "#065f46",
+                    fontWeight: 600,
+                  }}
+                >
+                  Data source:{" "}
+                  {response.source === "demo"
+                    ? "Deterministic demo dataset (not live hospital data)"
+                    : "Supabase"}
                 </p>
 
                 <p style={{ margin: "6px 0" }}>

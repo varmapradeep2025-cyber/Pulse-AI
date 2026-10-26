@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { getHospitalById, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
+import { ROUTES } from "../routes";
 
 export default function HospitalDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -9,7 +10,7 @@ export default function HospitalDetailsPage() {
   if (!facility) {
     return (
       <div className="container page">
-        <Link to="/hospitals">
+        <Link to={ROUTES.citizen}>
           ← Back to Healthcare Facilities
         </Link>
 
@@ -26,7 +27,7 @@ export default function HospitalDetailsPage() {
   return (
     <div className="container page">
       <Link
-        to="/hospitals"
+        to={ROUTES.citizen}
         style={{
           display: "inline-block",
           marginBottom: "24px",

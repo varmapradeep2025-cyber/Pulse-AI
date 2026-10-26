@@ -1,9 +1,14 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signUp } from "../lib/auth";
+import { ROUTES } from "../routes";
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from =
+    (location.state as { from?: string } | null)?.from ?? ROUTES.citizen;
+  const isHospitalAccess = from.startsWith(ROUTES.hospital);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,12 +26,12 @@ export default function SignupPage() {
       const data = await signUp(email, password, fullName);
 
       if (data.session) {
-        navigate("/dashboard");
+        navigate(from, { replace: true });
       } else {
         alert(
           "Account created. Please check your email to confirm your account."
         );
-        navigate("/login");
+        navigate(ROUTES.login, { replace: true, state: { from } });
       }
     } catch (err) {
       setError(
@@ -44,6 +49,12 @@ export default function SignupPage() {
       <div className="auth-card">
         <h1>Create your Pulse AI account</h1>
         <p>Get personalized healthcare assistance.</p>
+
+        {isHospitalAccess && (
+          <p className="demo-note">
+            Demo access: hospital roles and restrictions are not enforced.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit}>
           <label>
@@ -86,7 +97,13 @@ export default function SignupPage() {
 
         <p>
           Already have an account?{" "}
-          <Link to="/login">Sign in</Link>
+          <Link to={ROUTES.login} state={{ from }}>
+            Sign in
+          </Link>
+        </p>
+
+        <p>
+          <Link to={ROUTES.home}>← Back to Pulse AI home</Link>
         </p>
       </div>
     </main>

@@ -141,10 +141,13 @@ export type ScenarioSummary = {
   assumptions: string[];
 };
 
+export type ScenarioDataSource = "supabase" | "demo";
+
 export type ScenarioResponse = {
   scenario: ScenarioSummary;
   model: ModelInfo;
   results: SimulationResult[];
+  source: ScenarioDataSource;
 };
 
 export async function runScenarioSimulation(

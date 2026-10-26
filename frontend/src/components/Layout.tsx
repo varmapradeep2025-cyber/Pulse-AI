@@ -11,11 +11,11 @@ export default function Layout() {
       <a className="skip-link" href="#main-content">
         {t("layout.skip")}
       </a>
-      <Navbar />
+      <Navbar variant="home" />
       <main id="main-content" className="main">
         <Outlet />
       </main>
-      <Footer />
+      <Footer variant="home" />
     </div>
   );
 }

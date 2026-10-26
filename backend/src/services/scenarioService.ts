@@ -19,7 +19,6 @@
  * "consider / recommended action / potential response" only.
  */
 
-import { supabase } from "../utils/supabase.js";
 import {
   addDays,
   BASE_FEATURE_NAMES,
@@ -42,6 +41,13 @@ import type {
   CatalogMedicine,
   CatalogSupplier,
 } from "../data/catalog.js";
+import {
+  defaultScenarioForId,
+  isSupportedDisruptionType,
+  supportedScenarioIds,
+} from "../data/defaultScenarios.js";
+import type { ScenarioDefinition } from "../data/defaultScenarios.js";
+import { buildSyntheticDataset } from "./syntheticData.js";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RiskLabel = "GREEN" | "YELLOW" | "RED" | "CRITICAL";
@@ -138,11 +144,56 @@ export type ScenarioSummary = {
   assumptions: string[];
 };
 
+export type ScenarioDataSource = "supabase" | "demo";
+
 export type ScenarioResponse = {
   scenario: ScenarioSummary;
   model: ModelInfo;
   results: SimulationResult[];
+  source: ScenarioDataSource;
 };
+
+export type ScenarioRecord = {
+  id: number;
+  name: string;
+  description: string | null;
+  disruption_type: string | null;
+  duration_days: number | null;
+  demand_change_percent: number | null;
+  transport_delay_days: number | null;
+};
+
+export type ScenarioInventoryRow = {
+  hospital_id: number;
+  medicine_id: number;
+  current_stock: number;
+  safety_stock: number;
+};
+
+export type ScenarioDemandRow = {
+  hospital_id: number;
+  medicine_id: number;
+  date: string;
+  demand: number;
+};
+
+export interface ScenarioDataProvider {
+  loadScenario(id: number): Promise<ScenarioRecord | null>;
+  loadInventory(): Promise<ScenarioInventoryRow[]>;
+  loadDemandHistory(): Promise<ScenarioDemandRow[]>;
+}
+
+export class ScenarioError extends Error {
+  readonly status: number;
+  readonly publicMessage: string;
+
+  constructor(status: number, publicMessage: string, internalMessage?: string) {
+    super(internalMessage ?? publicMessage);
+    this.name = "ScenarioError";
+    this.status = status;
+    this.publicMessage = publicMessage;
+  }
+}
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
@@ -252,118 +303,240 @@ function buildRecommendations(
   return recommendations;
 }
 
-export async function simulateScenario(
-  scenarioId: number,
-): Promise<ScenarioResponse> {
-  // 1. Get the scenario
-  const { data: scenario, error: scenarioError } =
-    await supabase
+function numberOr(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseScenarioId(value: unknown): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ScenarioError(
+      400,
+      "scenarioId must be a positive integer.",
+    );
+  }
+
+  return parsed;
+}
+
+function scenarioFromRecord(record: ScenarioRecord): ScenarioDefinition {
+  const id = Number(record.id);
+  const disruptionType = String(record.disruption_type ?? "");
+
+  if (!isSupportedDisruptionType(disruptionType)) {
+    throw new ScenarioError(
+      400,
+      `Scenario ${id} uses an unsupported disruption type.`,
+    );
+  }
+
+  const durationDays = numberOr(record.duration_days, 1);
+
+  return {
+    id,
+    name: String(record.name || `Scenario ${id}`),
+    description: String(record.description ?? ""),
+    disruption_type: disruptionType,
+    duration_days: durationDays > 0 ? durationDays : 1,
+    demand_change_percent: numberOr(record.demand_change_percent, 0),
+    transport_delay_days: Math.max(
+      0,
+      numberOr(record.transport_delay_days, 0),
+    ),
+  };
+}
+
+function scenarioForId(id: number): ScenarioDefinition {
+  const fallback = defaultScenarioForId(id);
+
+  if (fallback) {
+    return fallback;
+  }
+
+  throw new ScenarioError(
+    404,
+    `Scenario ${id} was not found. Demo scenario IDs are ${supportedScenarioIds().join(", ")}.`,
+  );
+}
+
+function asDataAccessError(
+  operation: string,
+  error: unknown,
+): ScenarioError {
+  if (error instanceof ScenarioError) {
+    return error;
+  }
+
+  const detail = error instanceof Error ? error.message : String(error);
+
+  return new ScenarioError(
+    503,
+    "Scenario data is temporarily unavailable. Please try again.",
+    `${operation}: ${detail}`,
+  );
+}
+
+function buildDemoScenarioData(): {
+  inventory: ScenarioInventoryRow[];
+  demandRows: ScenarioDemandRow[];
+} {
+  const dataset = buildSyntheticDataset();
+
+  return {
+    inventory: dataset.inventory.map((item) => ({
+      hospital_id: item.hospital_id,
+      medicine_id: item.medicine_id,
+      current_stock: item.current_stock,
+      safety_stock: item.safety_stock,
+    })),
+    demandRows: dataset.demandRows,
+  };
+}
+
+async function scenarioDb() {
+  const { supabase } = await import("../utils/supabase.js");
+
+  return supabase;
+}
+
+const defaultScenarioDataProvider: ScenarioDataProvider = {
+  async loadScenario(id) {
+    const supabase = await scenarioDb();
+
+    const { data, error } = await supabase
       .from("scenarios")
       .select(
         "id, name, description, disruption_type, duration_days, demand_change_percent, transport_delay_days",
       )
-      .eq("id", scenarioId)
-      .single();
-
-  if (scenarioError) {
-    throw new Error(
-      `Scenario lookup failed: ${scenarioError.message}`,
-    );
-  }
-
-  if (!scenario) {
-    throw new Error("Scenario not found");
-  }
-
-  const demandChangePercent = Number(scenario.demand_change_percent ?? 0);
-  const transportDelayDays = Number(scenario.transport_delay_days ?? 0);
-
-  const disruptionType = String(scenario.disruption_type ?? "supplier_failure");
-
-  // 2. Get inventory
-  const { data: inventory, error: inventoryError } =
-    await supabase
-      .from("inventory")
-      .select(
-        "hospital_id, medicine_id, current_stock, safety_stock",
-      );
-
-  if (inventoryError) {
-    throw new Error(
-      `Inventory lookup failed: ${inventoryError.message}`,
-    );
-  }
-
-  // 3. Get demand history (paginated — PostgREST caps a single response)
-  const demandRows: { hospital_id: number; medicine_id: number; date: string; demand: number }[] = [];
-
-  const PAGE_SIZE = 1000;
-  let offset = 0;
-
-  for (;;) {
-    const { data, error } = await supabase
-      .from("demand_history")
-      .select("hospital_id, medicine_id, demand_date, demand")
-      .order("hospital_id", { ascending: true })
-      .order("medicine_id", { ascending: true })
-      .order("demand_date", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .eq("id", id)
+      .maybeSingle();
 
     if (error) {
-      throw new Error(
-        `Demand history lookup failed: ${error.message}`,
+      throw new Error(`Scenario lookup failed: ${error.message}`);
+    }
+
+    return (data as ScenarioRecord | null) ?? null;
+  },
+
+  async loadInventory() {
+    const supabase = await scenarioDb();
+
+    const { data, error } = await supabase
+      .from("inventory")
+      .select("hospital_id, medicine_id, current_stock, safety_stock");
+
+    if (error) {
+      throw new Error(`Inventory lookup failed: ${error.message}`);
+    }
+
+    return (data ?? []).map((row) => ({
+      hospital_id: Number(row.hospital_id),
+      medicine_id: Number(row.medicine_id),
+      current_stock: Number(row.current_stock),
+      safety_stock: Number(row.safety_stock),
+    }));
+  },
+
+  async loadDemandHistory() {
+    const supabase = await scenarioDb();
+    const rows: ScenarioDemandRow[] = [];
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+
+    for (;;) {
+      const { data, error } = await supabase
+        .from("demand_history")
+        .select("hospital_id, medicine_id, demand_date, demand")
+        .order("hospital_id", { ascending: true })
+        .order("medicine_id", { ascending: true })
+        .order("demand_date", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) {
+        throw new Error(`Demand history lookup failed: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        break;
+      }
+
+      rows.push(
+        ...data.map((row) => ({
+          hospital_id: Number(row.hospital_id),
+          medicine_id: Number(row.medicine_id),
+          date: String(row.demand_date).slice(0, 10),
+          demand: Number(row.demand),
+        })),
       );
+
+      if (data.length < PAGE_SIZE) {
+        break;
+      }
+
+      offset += PAGE_SIZE;
     }
 
-    if (!data || data.length === 0) {
-      break;
-    }
+    return rows;
+  },
+};
 
-    demandRows.push(
-      ...data.map((row) => ({
-        hospital_id: Number(row.hospital_id),
-        medicine_id: Number(row.medicine_id),
-        date: String(row.demand_date).slice(0, 10),
-        demand: Number(row.demand),
-      })),
-    );
+export async function simulateScenario(
+  scenarioId: unknown,
+  provider: ScenarioDataProvider = defaultScenarioDataProvider,
+): Promise<ScenarioResponse> {
+  const id = parseScenarioId(scenarioId);
+  let source: ScenarioDataSource = "supabase";
+  let scenarioRecord: ScenarioRecord | null;
 
-    if (data.length < PAGE_SIZE) {
-      break;
-    }
-
-    offset += PAGE_SIZE;
+  try {
+    scenarioRecord = await provider.loadScenario(id);
+  } catch (error) {
+    throw asDataAccessError("Scenario lookup", error);
   }
 
-  if (!inventory || inventory.length === 0) {
-    return {
-      scenario: buildSummary(
-        scenario,
-        [],
-        [],
-        [],
-        [],
-        {
-          disruptionType,
-          demandChangePercent: 0,
-          transportDelayDays: 0,
-          windowDays: Number(scenario.duration_days ?? 1),
-          shortages: 0,
-          worst: "GREEN",
-          counts: { GREEN: 0, YELLOW: 0, RED: 0, CRITICAL: 0 },
-        },
-      ),
-      model: {
-        name: "No data",
-        featureNames: [],
-        trainRows: 0,
-        testRows: 0,
-        mlMae: 0,
-        baselineMae: 0,
-      },
-      results: [],
-    };
+  const scenario = scenarioRecord
+    ? scenarioFromRecord(scenarioRecord)
+    : scenarioForId(id);
+
+  let inventory: ScenarioInventoryRow[];
+
+  try {
+    inventory = await provider.loadInventory();
+  } catch (error) {
+    throw asDataAccessError("Inventory lookup", error);
   }
+
+  let demandRows: ScenarioDemandRow[];
+
+  try {
+    demandRows = await provider.loadDemandHistory();
+  } catch (error) {
+    throw asDataAccessError("Demand history lookup", error);
+  }
+
+  if (inventory.length === 0 || demandRows.length === 0) {
+    const demo = buildDemoScenarioData();
+
+    inventory = demo.inventory;
+    demandRows = demo.demandRows;
+    source = "demo";
+  }
+
+  const demandChangePercent = scenario.demand_change_percent;
+  const transportDelayDays = scenario.transport_delay_days;
+  const disruptionType = scenario.disruption_type;
 
   // 4. Group demand by hospital + medicine
   const demandMap = new Map<string, { date: string; demand: number }[]>();
@@ -701,7 +874,13 @@ export async function simulateScenario(
     },
   );
 
-  return { scenario: summary, model: modelInfo, results };
+  if (source === "demo") {
+    summary.assumptions.push(
+      "Data source: deterministic synthetic demo inventory and demand; these are not live hospital records.",
+    );
+  }
+
+  return { source, scenario: summary, model: modelInfo, results };
 }
 
 function rankLabel(label: RiskLabel): number {

@@ -13,6 +13,7 @@ import ReportCard from "../components/ReportCard";
 import EmptyState from "../components/EmptyState";
 import type { ReportStatus } from "../types/domain";
 import type { RiskLabel } from "../api/scenarios";
+import { ROUTES } from "../routes";
 
 const STATUS_FILTERS: Array<ReportStatus | "All"> = [
   "All",
@@ -443,7 +444,7 @@ export default function ReportsPage() {
             }}
           >
             No simulation reports yet. Run a scenario from the{" "}
-            <Link to="/" className="report-card__link">
+            <Link to={ROUTES.hospital} className="report-card__link">
               Dashboard
             </Link>{" "}
             to generate one.
