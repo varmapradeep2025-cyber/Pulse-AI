@@ -249,12 +249,46 @@ function buildRiskReason(options: {
   }
 }
 
+function emergencyProcurementRecommendation(
+  item: SimulationResult,
+): Recommendation {
+  return {
+    type: "emergency_procurement",
+    why: `Projected stock falls ${item.estimated_shortage_quantity} ${item.medicine.unit} below the safety level by the end of the ${item.disruption_window_days}-day disruption.`,
+    action: `Consider emergency procurement of approximately ${item.estimated_shortage_quantity} ${item.medicine.unit} of ${item.medicine.generic_name} to restore the safety buffer.`,
+    expected_impact: `Restores stock to the safety level and removes the projected stock-out risk within the disruption window.`,
+  };
+}
+
+function monitoringRecommendation(
+  item: SimulationResult,
+): Recommendation | null {
+  if (item.risk_label === "YELLOW" || item.risk_label === "RED") {
+    return {
+      type: "monitoring",
+      why: item.risk_reason,
+      action: `Increase inventory monitoring frequency for ${item.medicine.generic_name} at ${item.hospital.hospital_name} until stock is replenished.`,
+      expected_impact: `Earlier detection if the projection worsens during the disruption.`,
+    };
+  }
+
+  if (item.risk_label === "GREEN") {
+    return {
+      type: "monitoring",
+      why: item.risk_reason,
+      action: `Continue routine inventory monitoring for ${item.medicine.generic_name} at ${item.hospital.hospital_name}.`,
+      expected_impact: `Keeps the stock position visible during the disruption.`,
+    };
+  }
+
+  return null;
+}
+
 function buildRecommendations(
   item: SimulationResult,
   affectedSupplier: CatalogSupplier | undefined,
 ): Recommendation[] {
   const medicine = item.medicine;
-  const hospital = item.hospital;
   const recommendations: Recommendation[] = [];
 
   /* 1) Alternate supplier — when the primary supplier is unavailable. */
@@ -275,29 +309,14 @@ function buildRecommendations(
 
   /* 2) Emergency procurement — only when a shortage is actually projected. */
   if (item.estimated_shortage_quantity > 0) {
-    recommendations.push({
-      type: "emergency_procurement",
-      why: `Projected stock falls ${item.estimated_shortage_quantity} ${item.medicine.unit} below the safety level by the end of the ${item.disruption_window_days}-day disruption.`,
-      action: `Consider emergency procurement of approximately ${item.estimated_shortage_quantity} ${item.medicine.unit} of ${medicine.generic_name} to restore the safety buffer.`,
-      expected_impact: `Restores stock to the safety level and removes the projected stock-out risk within the disruption window.`,
-    });
+    recommendations.push(emergencyProcurementRecommendation(item));
   }
 
   /* 3) Monitoring — elevated risk without a confirmed shortage yet. */
-  if (item.risk_label === "YELLOW" || item.risk_label === "RED") {
-    recommendations.push({
-      type: "monitoring",
-      why: item.risk_reason,
-      action: `Increase inventory monitoring frequency for ${medicine.generic_name} at ${hospital.hospital_name} until stock is replenished.`,
-      expected_impact: `Earlier detection if the projection worsens during the disruption.`,
-    });
-  } else if (item.risk_label === "GREEN") {
-    recommendations.push({
-      type: "monitoring",
-      why: item.risk_reason,
-      action: `Continue routine inventory monitoring for ${medicine.generic_name} at ${hospital.hospital_name}.`,
-      expected_impact: `Keeps the stock position visible during the disruption.`,
-    });
+  const monitoring = monitoringRecommendation(item);
+
+  if (monitoring) {
+    recommendations.push(monitoring);
   }
 
   return recommendations;
@@ -683,7 +702,7 @@ export async function simulateScenario(
     for (let day = 1; day <= 7; day++) {
       const previous = simulated[simulated.length - 1];
       const features = [
-        ...buildBaseFeatures(simulated, simulated.length - 1),
+        ...buildBaseFeatures(simulated, simulated.length),
         ...extra,
       ];
       const predicted = round2(predictVector(model, features));
@@ -692,7 +711,7 @@ export async function simulateScenario(
 
       simulated.push({
         date: dateString(
-          addDays(new Date(`${previous.date}T00:00:00`), 1),
+          addDays(new Date(`${previous.date}T00:00:00Z`), 1),
         ),
         demand: predicted,
       });
@@ -918,7 +937,70 @@ function supplierDisruptionCause(
   }
 }
 
-function applyRedistribution(results: SimulationResult[]): void {
+function riskLabelForRemaining(
+  remaining: number,
+  safetyStock: number,
+): RiskLabel {
+  if (remaining <= 0) {
+    return "CRITICAL";
+  }
+
+  if (remaining < safetyStock) {
+    return "RED";
+  }
+
+  if (remaining <= safetyStock * 1.5) {
+    return "YELLOW";
+  }
+
+  return "GREEN";
+}
+
+function refreshAfterRedistribution(item: SimulationResult): void {
+  item.projected_remaining_stock = round2(
+    Math.max(0, item.projected_remaining_stock),
+  );
+  item.safety_stock_breach =
+    item.projected_remaining_stock < item.safety_stock;
+  item.estimated_shortage_quantity = Math.max(
+    0,
+    Math.ceil(item.safety_stock - item.projected_remaining_stock),
+  );
+  item.risk_label = riskLabelForRemaining(
+    item.projected_remaining_stock,
+    item.safety_stock,
+  );
+  item.risk_level = mapRiskLevel(item.risk_label);
+  item.risk_reason = buildRiskReason({
+    label: item.risk_label,
+    rate: item.effective_daily_demand,
+    windowDays: item.disruption_window_days,
+    remaining: item.projected_remaining_stock,
+    safety: item.safety_stock,
+    stockOutDay: item.projected_remaining_stock <= 0
+      ? item.stock_out_day
+      : null,
+    cause: " after the proposed redistribution",
+  });
+
+  item.recommendations = item.recommendations.filter(
+    (recommendation) =>
+      recommendation.type !== "emergency_procurement" &&
+      recommendation.type !== "monitoring",
+  );
+
+  if (item.estimated_shortage_quantity > 0) {
+    item.recommendations.push(emergencyProcurementRecommendation(item));
+  }
+
+  const monitoring = monitoringRecommendation(item);
+
+  if (monitoring) {
+    item.recommendations.push(monitoring);
+  }
+}
+
+export function applyRedistribution(results: SimulationResult[]): void {
   const byMedicine = new Map<number, SimulationResult[]>();
 
   for (const result of results) {
@@ -942,24 +1024,34 @@ function applyRedistribution(results: SimulationResult[]): void {
       const donor = donors.find(
         (candidate) =>
           candidate.hospital_id !== recipient.hospital_id &&
-          candidate.projected_remaining_stock - candidate.safety_stock >=
-            recipient.estimated_shortage_quantity,
+          candidate.projected_remaining_stock - candidate.safety_stock >= 1,
       );
 
       if (!donor) {
         continue;
       }
 
+      const donorSurplus = round2(
+        donor.projected_remaining_stock - donor.safety_stock,
+      );
+      const recipientShortage = recipient.estimated_shortage_quantity;
       const transferUnits = Math.floor(
-        Math.min(
-          donor.projected_remaining_stock - donor.safety_stock,
-          recipient.estimated_shortage_quantity,
-        ),
+        Math.min(donorSurplus, recipientShortage),
       );
 
       if (transferUnits <= 0) {
         continue;
       }
+
+      donor.projected_remaining_stock = round2(
+        donor.projected_remaining_stock - transferUnits,
+      );
+      recipient.projected_remaining_stock = round2(
+        recipient.projected_remaining_stock + transferUnits,
+      );
+
+      refreshAfterRedistribution(donor);
+      refreshAfterRedistribution(recipient);
 
       recipient.redistribution = {
         medicine_id: medicineId,
@@ -970,17 +1062,25 @@ function applyRedistribution(results: SimulationResult[]): void {
 
       recipient.recommendations.unshift({
         type: "reallocate",
-        why: `${recipient.hospital.hospital_name} is projected to fall ${recipient.estimated_shortage_quantity} ${recipient.medicine.unit} below the safety stock of ${recipient.medicine.generic_name}.`,
+        why: `${recipient.hospital.hospital_name} is projected to fall ${recipientShortage} ${recipient.medicine.unit} below the safety stock of ${recipient.medicine.generic_name}.`,
         action: `Consider transferring ${transferUnits} ${recipient.medicine.unit} of ${recipient.medicine.generic_name} from ${donor.hospital.hospital_name} to ${recipient.hospital.hospital_name}, subject to local inventory and authorization.`,
-        expected_impact: `Reduces the projected shortage at ${recipient.hospital.hospital_name} if the transfer is completed.`,
+        expected_impact:
+          recipient.estimated_shortage_quantity === 0
+            ? `Removes the projected safety-stock gap at ${recipient.hospital.hospital_name} if the transfer is completed.`
+            : `Reduces the projected shortage at ${recipient.hospital.hospital_name} by ${transferUnits} ${recipient.medicine.unit} if the transfer is completed.`,
       });
 
       donor.recommendations.unshift({
         type: "reallocate",
-        why: `${donor.hospital.hospital_name} holds a projected surplus of ${round2(donor.projected_remaining_stock - donor.safety_stock)} ${donor.medicine.unit} of ${donor.medicine.generic_name}.`,
+        why: `${donor.hospital.hospital_name} holds a projected surplus of ${donorSurplus} ${donor.medicine.unit} of ${donor.medicine.generic_name}.`,
         action: `Consider releasing ${transferUnits} ${donor.medicine.unit} of ${donor.medicine.generic_name} to ${recipient.hospital.hospital_name}, subject to local inventory and authorization.`,
         expected_impact: `Balances the network position without adding procurement cost during the disruption.`,
       });
+
+      recipient.recommendation =
+        recipient.recommendations[0]?.action ?? "Continue routine monitoring.";
+      donor.recommendation =
+        donor.recommendations[0]?.action ?? "Continue routine monitoring.";
     }
   }
 }

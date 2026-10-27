@@ -126,8 +126,8 @@ export function seriesMean(series: DemandPoint[]): number {
 }
 
 function dowOneHot(date: Date, out: number[], offset: number): void {
-  /* getDay(): 0 = Sunday … 6 = Saturday. Band order is Mon..Sun. */
-  const day = date.getDay(); // 0..6
+  /* getUTCDay(): 0 = Sunday … 6 = Saturday. Band order is Mon..Sun. */
+  const day = date.getUTCDay(); // 0..6
 
   const monIndex = day === 0 ? 6 : day - 1;
 
@@ -153,7 +153,7 @@ export function buildBaseFeatures(
 
   const date =
     i < n
-      ? new Date(`${series[i].date}T00:00:00`)
+      ? new Date(`${series[i].date}T00:00:00Z`)
       : futureDate(series[n - 1].date, i - n + 1);
 
   const features = new Array<number>(BASE_BANDS.NUM_BASE).fill(0);
@@ -164,9 +164,9 @@ export function buildBaseFeatures(
   features[BASE_BANDS.MA14] = windowMean(series, i, 14);
   features[BASE_BANDS.TREND] = n > 1 ? i / (n - 1) : 0;
   features[BASE_BANDS.IS_WEEKEND] =
-    date.getDay() === 0 || date.getDay() === 6 ? 1 : 0;
+    date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 1 : 0;
 
-  const month = date.getMonth(); // 0..11
+  const month = date.getUTCMonth(); // 0..11
   const phase = (2 * Math.PI * month) / 12;
 
   features[BASE_BANDS.MONTH_SIN] = Math.sin(phase);
@@ -181,7 +181,7 @@ export function futureDate(
   lastDate: string,
   daysAhead: number,
 ): Date {
-  const date = new Date(`${lastDate}T00:00:00`);
+  const date = new Date(`${lastDate}T00:00:00Z`);
 
   date.setUTCDate(date.getUTCDate() + daysAhead);
 

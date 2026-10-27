@@ -1,3 +1,5 @@
+import { parseFrontendOrigins } from "./cors.js";
+
 const PORT = Number(process.env.PORT ?? 4000);
 const HOST = process.env.HOST ?? "0.0.0.0";
 const NODE_ENV = process.env.NODE_ENV ?? "development";
@@ -28,6 +30,10 @@ const INVENTORY_STAFF_USER_IDS = (
   .map((value) => value.trim())
   .filter(Boolean);
 
+const FRONTEND_ORIGINS = parseFrontendOrigins(
+  process.env.FRONTEND_ORIGINS,
+);
+
 export const env = {
   PORT,
   HOST,
@@ -36,4 +42,5 @@ export const env = {
   SUPABASE_SERVICE_ROLE_KEY,
   APPOINTMENT_STAFF_USER_IDS,
   INVENTORY_STAFF_USER_IDS,
+  FRONTEND_ORIGINS,
 };

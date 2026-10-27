@@ -338,7 +338,7 @@ Pulse AI/
 │       └── lib/                 # supabase client, auth helpers
 ├── backend/                     # Node.js + Express + TypeScript (port 4000)
 │   └── src/
-│       ├── routes/              # health, dbtest, intelligence, scenario
+│       ├── routes/              # health, intelligence, scenario
 │       ├── services/            # scenarioService, intelligenceService, mlForecast,
 │       │                        #   syntheticData
 │       ├── data/catalog.ts      # demo medicine/hospital/supplier catalog
@@ -355,9 +355,14 @@ Pulse AI/
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Service health + environment |
-| GET | `/db-test` | Reads sample rows from all Supabase tables (diagnostics) |
 | GET | `/api/intelligence/summary` | Hospital-intelligence pipeline: inventory → demand → ML forecast → risk → recommendation → action |
 | POST | `/api/scenarios/simulate` | Run a disruption simulation (`{ scenarioId }`) and return per-item impact, risk, and recommendations |
+
+`GET /health` is public. The analytics endpoints require a valid Supabase
+session in the `Authorization: Bearer <access_token>` header. Browser CORS
+access is limited to the origins listed in `FRONTEND_ORIGINS`. Analytics
+currently use authenticated-session access; hospital-scoped roles must be
+defined and enforced before imported real records are exposed.
 
 The frontend calls `http://localhost:4000` for these endpoints. The Python
 `ml-service` currently exposes only `GET /health`; it is reserved for future
@@ -510,7 +515,7 @@ Never commit real `.env` files (`.gitignore` covers them).
 | Service | File | Required now | Notes |
 |---|---|---|---|
 | `frontend/.env` | `frontend/.env.example` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | used by Supabase auth; `VITE_API_BASE_URL` optional |
-| `backend/.env` | `backend/.env.example` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role client; backend refuses to start without them |
+| `backend/.env` | `backend/.env.example` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role client; backend refuses to start without them. `FRONTEND_ORIGINS` is optional and defaults to `http://localhost:5173` |
 | `ml-service/.env` | `ml-service/.env.example` | none | metadata only (`SERVICE_NAME`, `SERVICE_VERSION`, `APP_ENV`) |
 
 ---

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { analyticsAuth } from "../middleware/analyticsAuth.js";
 import {
   ScenarioError,
   simulateScenario,
@@ -6,7 +7,9 @@ import {
 
 const router = Router();
 
-router.post("/api/scenarios/simulate", async (req, res) => {
+router.post("/api/scenarios/simulate", analyticsAuth, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+
   try {
     const { scenarioId } = req.body ?? {};
 

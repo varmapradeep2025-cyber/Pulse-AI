@@ -1,9 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { createCorsOptions } from "./config/cors.js";
 import { env } from "./config/env.js";
 import healthRouter from "./routes/health.js";
-import dbTestRouter from "./routes/dbtest.js";
 import scenarioRouter from "./routes/scenario.js";
 import intelligenceRouter from "./routes/intelligence.js";
 import {
@@ -13,11 +13,10 @@ import {
 import inventoryImportRouter from "./routes/inventoryImport.js";
 const app = express();
 
-app.use(cors());
+app.use(cors(createCorsOptions(env.FRONTEND_ORIGINS)));
 app.use(express.json());
 
 app.use(healthRouter);
-app.use(dbTestRouter);
 app.use(scenarioRouter);
 app.use(intelligenceRouter);
 app.use("/api/appointments", appointmentRouter);

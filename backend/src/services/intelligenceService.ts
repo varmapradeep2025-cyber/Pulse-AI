@@ -380,14 +380,14 @@ export function buildSeriesForecasts(
       const previous = simulated[simulated.length - 1];
 
       const features = [
-        ...buildBaseFeatures(simulated, simulated.length - 1),
+        ...buildBaseFeatures(simulated, simulated.length),
         ...extra,
       ];
 
       const predicted = Math.round(predictVector(model, features));
 
       const predictedPoint = {
-        date: dateString(addDays(new Date(`${previous.date}T00:00:00`), 1)),
+        date: dateString(addDays(new Date(`${previous.date}T00:00:00Z`), 1)),
         predicted,
       };
 

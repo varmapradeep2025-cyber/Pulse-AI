@@ -218,6 +218,38 @@ test("repeated demo fallback runs produce equivalent results", async () => {
   assert.deepEqual(first, second);
 });
 
+test("scenario summary reflects post-redistribution shortage and risk results", async () => {
+  const result = await simulateScenario(3, provider());
+
+  const shortageTotal = result.results.reduce(
+    (total, item) => total + item.estimated_shortage_quantity,
+    0,
+  );
+
+  assert.equal(
+    result.scenario.projected_shortage_total,
+    Number(shortageTotal.toFixed(2)),
+  );
+
+  const counts = {
+    GREEN: 0,
+    YELLOW: 0,
+    RED: 0,
+    CRITICAL: 0,
+  };
+
+  for (const item of result.results) {
+    counts[item.risk_label] += 1;
+  }
+
+  assert.deepEqual(result.scenario.result_counts, counts);
+
+  for (const item of result.results) {
+    assert.ok(item.projected_remaining_stock >= 0);
+    assert.ok(item.estimated_shortage_quantity >= 0);
+  }
+});
+
 test("response keeps the fields consumed by the frontend", async () => {
   const result = await simulateScenario(2, provider());
   const { success, results } = {

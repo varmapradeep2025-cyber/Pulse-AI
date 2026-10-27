@@ -5,7 +5,10 @@
  * supply-chain catalog (backend/src/data/catalog.ts).
  */
 
-const API_BASE_URL = "http://localhost:4000";
+import { supabase } from "../lib/supabase";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RiskLabel = "GREEN" | "YELLOW" | "RED" | "CRITICAL";
@@ -153,18 +156,33 @@ export type ScenarioResponse = {
 export async function runScenarioSimulation(
   scenarioId: number,
 ): Promise<ScenarioResponse> {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+
+  const token = sessionData.session?.access_token;
+
+  if (sessionError || !token) {
+    throw new Error("Your session is invalid or has expired. Sign in again.");
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/api/scenarios/simulate`,
     {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         scenarioId,
       }),
+      cache: "no-store",
     },
   );
+
+  if (response.status === 401) {
+    throw new Error("Your session is invalid or has expired. Sign in again.");
+  }
 
   if (!response.ok) {
     throw new Error(

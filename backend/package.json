@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/scenarioService.test.ts test/appointmentService.test.ts test/inventoryImport.test.ts"
+    "test": "node --import tsx --test test/scenarioService.test.ts test/redistribution.test.ts test/mlForecast.test.ts test/analyticsAuth.test.ts test/analyticsRoutes.test.ts test/cors.test.ts test/appointmentService.test.ts test/inventoryImport.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
