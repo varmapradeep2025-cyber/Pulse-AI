@@ -297,7 +297,7 @@ export default function HospitalQueuePage() {
       });
       setWalkInName("");
       setNotice(
-        `Walk-in ${view.appointment.reference} checked in and waiting. No physical token is required.`,
+        `Walk-in ${view.appointment.reference} (Token: ${view.appointment.digitalToken ?? "Allocated"}) checked in and waiting.`,
       );
       setRefreshKey((key) => key + 1);
     } catch (error) {
@@ -411,6 +411,38 @@ export default function HospitalQueuePage() {
       ) : (
         <>
           {queue && <QueueEstimate estimate={queue.waitEstimate} />}
+          {queue?.currentServingDigitalToken && (
+            <div
+              className="appointment-notice"
+              style={{
+                marginBottom: "16px",
+                padding: "10px 16px",
+                backgroundColor: "#eff6ff",
+                borderLeft: "4px solid #0284c7",
+                borderRadius: "4px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>
+                <strong>Now Calling / Serving Token:</strong>{" "}
+                <span
+                  style={{
+                    fontSize: "1.2rem",
+                    fontWeight: 700,
+                    color: "#0284c7",
+                    marginLeft: "6px",
+                  }}
+                >
+                  {queue.currentServingDigitalToken}
+                </span>
+              </span>
+              <span>
+                <strong>{queue.activeCount ?? 0}</strong> active visits in queue
+              </span>
+            </div>
+          )}
 
           <div className="queue-layout">
             <section className="appointment-panel">
@@ -549,7 +581,7 @@ export default function HospitalQueuePage() {
 
                 <p className="appointment-muted">
                   Walk-in registration stays available for people who cannot
-                  book online. This page does not issue a token number.
+                  book online. Walk-ins receive an atomic digital queue token automatically upon registration.
                 </p>
               </section>
 

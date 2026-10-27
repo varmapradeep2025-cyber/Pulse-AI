@@ -19,11 +19,20 @@ import {
   type CreateAppointmentInput,
   type CreateWalkInInput,
   type PublicAppointment,
+  type QueueSnapshot,
   type QueueView,
   type RescheduleAppointmentInput,
   type TransitionAppointmentInput,
   type WaitEstimate,
 } from "../types/appointments.js";
+import {
+  type AppointmentRepository,
+  InMemoryAppointmentRepository,
+} from "../repositories/appointmentRepository.js";
+import {
+  type AppointmentAccessIdentity,
+  isStaffAuthorizedForHospital,
+} from "./appointmentAccess.js";
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -76,6 +85,7 @@ export class AppointmentError extends Error {
 interface AppointmentServiceOptions {
   now?: () => Date;
   hospitals?: readonly AppointmentHospital[];
+  repository?: AppointmentRepository;
 }
 
 interface ResolvedSelection {
@@ -144,6 +154,10 @@ function slotIdFor(doctorId: string, startsAt: Date): string {
 function makeReference(now: Date): string {
   const datePart = istDateKey(now).replaceAll("-", "");
   return `APT-${datePart}-${randomUUID().slice(0, 6).toUpperCase()}`;
+}
+
+export function formatDigitalToken(tokenNumber: number): string {
+  return `T-${String(tokenNumber).padStart(3, "0")}`;
 }
 
 function isActiveStatus(status: AppointmentStatus): boolean {
@@ -254,18 +268,30 @@ function consultationDurationMs(
 export class AppointmentService {
   private readonly now: () => Date;
   private readonly hospitals: readonly AppointmentHospital[];
-  private appointments: Appointment[] = [];
-  private events: AppointmentEvent[] = [];
+  private readonly repository: AppointmentRepository;
 
   constructor(options: AppointmentServiceOptions = {}) {
     this.now = options.now ?? (() => new Date());
     this.hospitals =
       options.hospitals ?? APPOINTMENT_DEMO_HOSPITALS;
+    this.repository =
+      options.repository ?? new InMemoryAppointmentRepository();
+  }
+
+  private get appointments(): Appointment[] {
+    return this.repository.getAppointments();
+  }
+
+  private get events(): AppointmentEvent[] {
+    return this.repository.getEvents();
+  }
+
+  getRepository(): AppointmentRepository {
+    return this.repository;
   }
 
   resetDemoData(): void {
-    this.appointments = [];
-    this.events = [];
+    this.repository.reset();
   }
 
   getCatalog() {
@@ -337,6 +363,106 @@ export class AppointmentService {
     return this.toView(appointment);
   }
 
+  getQueueSnapshot(
+    user: AppointmentUser,
+    appointmentId: string,
+  ): QueueSnapshot {
+    const appointment = this.findOwnedAppointment(
+      user,
+      appointmentId,
+    );
+    const now = this.now();
+    const queueDate =
+      appointment.queueDate ?? istDateKey(new Date(appointment.scheduledAt));
+
+    const activeQueue = this.appointments
+      .filter(
+        (candidate) =>
+          candidate.hospitalId === appointment.hospitalId &&
+          candidate.departmentId === appointment.departmentId &&
+          (candidate.status === "checked_in" ||
+            candidate.status === "waiting" ||
+            candidate.status === "in_consultation") &&
+          (candidate.queueDate === queueDate ||
+            sameIstDay(
+              candidate.checkedInAt ?? candidate.scheduledAt,
+              now,
+            )),
+      )
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.checkedInAt ?? first.scheduledAt,
+        ).getTime();
+        const secondTime = new Date(
+          second.checkedInAt ?? second.scheduledAt,
+        ).getTime();
+
+        return firstTime - secondTime;
+      });
+
+    let currentServingToken = this.repository.getServingToken(
+      appointment.hospitalId,
+      appointment.departmentId,
+      queueDate,
+    );
+
+    if (currentServingToken === null) {
+      const inConsultation = activeQueue.find(
+        (candidate) => candidate.status === "in_consultation",
+      );
+      if (inConsultation && inConsultation.tokenNumber !== null) {
+        currentServingToken = inConsultation.tokenNumber;
+      }
+    }
+
+    let patientsAhead = 0;
+    if (
+      appointment.status === "checked_in" ||
+      appointment.status === "waiting"
+    ) {
+      const index = activeQueue.findIndex(
+        (candidate) => candidate.id === appointment.id,
+      );
+      patientsAhead = index >= 0 ? index : 0;
+    }
+
+    const waitEstimate = this.computeWaitEstimate({
+      hospital:
+        this.hospitals.find(
+          (candidate) => candidate.id === appointment.hospitalId,
+        ) ?? {
+          id: appointment.hospitalId,
+          name: appointment.hospitalName,
+          city: "",
+          departments: [],
+        },
+      department: {
+        id: appointment.departmentId,
+        name: appointment.departmentName,
+        doctors: [],
+      },
+      doctorId: appointment.doctorId,
+      appointment,
+    });
+
+    return {
+      appointmentId: appointment.id,
+      reference: appointment.reference,
+      status: appointment.status,
+      queueDate: appointment.queueDate,
+      tokenNumber: appointment.tokenNumber,
+      digitalToken: appointment.digitalToken,
+      currentServingToken,
+      currentServingDigitalToken:
+        currentServingToken !== null
+          ? formatDigitalToken(currentServingToken)
+          : null,
+      patientsAhead,
+      waitEstimate,
+      updatedAt: now.toISOString(),
+    };
+  }
+
   createAppointment(
     user: AppointmentUser,
     input: CreateAppointmentInput,
@@ -377,10 +503,23 @@ export class AppointmentService {
       input.patientName,
       user.fullName,
     );
-    const requestedStatus: AppointmentStatus =
-      selection.doctor.approvalRequired
-        ? "requested"
-        : "confirmed";
+    const isApprovalRequired = selection.doctor.approvalRequired;
+    const requestedStatus: AppointmentStatus = isApprovalRequired
+      ? "requested"
+      : "confirmed";
+
+    const queueDate = istDateKey(new Date(slot.startsAt));
+    let tokenNumber: number | null = null;
+    let digitalToken: string | null = null;
+
+    if (!isApprovalRequired) {
+      tokenNumber = this.repository.allocateToken(
+        selection.hospital.id,
+        selection.department.id,
+        queueDate,
+      );
+      digitalToken = formatDigitalToken(tokenNumber);
+    }
 
     const appointment = this.addAppointment({
       userId: user.id,
@@ -391,6 +530,10 @@ export class AppointmentService {
       status: requestedStatus,
       source: "online",
       checkedInAt: null,
+      queueDate,
+      tokenNumber,
+      digitalToken,
+      calledAt: null,
     });
 
     return this.toView(appointment);
@@ -467,15 +610,46 @@ export class AppointmentService {
     }
 
     const previousStatus = appointment.status;
-    const nextStatus: AppointmentStatus =
-      selection.doctor.approvalRequired
-        ? "requested"
-        : "confirmed";
+    const isApprovalRequired = selection.doctor.approvalRequired;
+    const nextStatus: AppointmentStatus = isApprovalRequired
+      ? "requested"
+      : "confirmed";
 
+    const oldQueueDate =
+      appointment.queueDate ??
+      istDateKey(new Date(appointment.scheduledAt));
+    const newQueueDate = istDateKey(new Date(slot.startsAt));
+
+    if (oldQueueDate === newQueueDate) {
+      if (nextStatus === "confirmed" && appointment.tokenNumber === null) {
+        appointment.tokenNumber = this.repository.allocateToken(
+          selection.hospital.id,
+          selection.department.id,
+          newQueueDate,
+        );
+        appointment.digitalToken = formatDigitalToken(appointment.tokenNumber);
+      }
+    } else {
+      if (!isApprovalRequired) {
+        appointment.tokenNumber = this.repository.allocateToken(
+          selection.hospital.id,
+          selection.department.id,
+          newQueueDate,
+        );
+        appointment.digitalToken = formatDigitalToken(appointment.tokenNumber);
+      } else {
+        appointment.tokenNumber = null;
+        appointment.digitalToken = null;
+      }
+    }
+
+    appointment.queueDate = newQueueDate;
     appointment.slotId = slot.slotId;
     appointment.scheduledAt = slot.startsAt;
     appointment.status = nextStatus;
     appointment.updatedAt = now.toISOString();
+
+    this.repository.saveAppointment(appointment);
     this.recordEvent(
       appointment.id,
       previousStatus,
@@ -513,6 +687,8 @@ export class AppointmentService {
     appointment.status = "cancelled";
     appointment.cancelledAt = now.toISOString();
     appointment.updatedAt = now.toISOString();
+
+    this.repository.saveAppointment(appointment);
     this.recordEvent(
       appointment.id,
       previousStatus,
@@ -540,7 +716,7 @@ export class AppointmentService {
       throw new AppointmentError(
         409,
         "ALREADY_CHECKED_IN",
-        "You are already checked in and waiting. No physical token is needed.",
+        "You are already checked in and waiting. Your digital queue token is active.",
       );
     }
 
@@ -580,6 +756,20 @@ export class AppointmentService {
     appointment.status = "waiting";
     appointment.checkedInAt = now.toISOString();
     appointment.updatedAt = now.toISOString();
+
+    if (appointment.tokenNumber === null) {
+      const queueDate =
+        appointment.queueDate ?? istDateKey(new Date(appointment.scheduledAt));
+      appointment.queueDate = queueDate;
+      appointment.tokenNumber = this.repository.allocateToken(
+        appointment.hospitalId,
+        appointment.departmentId,
+        queueDate,
+      );
+      appointment.digitalToken = formatDigitalToken(appointment.tokenNumber);
+    }
+
+    this.repository.saveAppointment(appointment);
     this.recordEvent(
       appointment.id,
       previousStatus,
@@ -591,10 +781,13 @@ export class AppointmentService {
     return this.toView(appointment);
   }
 
-  getQueue(input: {
-    hospitalId?: unknown;
-    departmentId?: unknown;
-  }): QueueView {
+  getQueue(
+    input: {
+      hospitalId?: unknown;
+      departmentId?: unknown;
+    },
+    staffIdentity?: AppointmentAccessIdentity,
+  ): QueueView {
     const hospitalId = asRequiredString(
       input.hospitalId,
       "Hospital",
@@ -603,6 +796,17 @@ export class AppointmentService {
       input.departmentId,
       "Department",
     );
+
+    if (staffIdentity) {
+      if (!isStaffAuthorizedForHospital(staffIdentity, hospitalId)) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to view the queue for this hospital.",
+        );
+      }
+    }
+
     const selection = this.resolveSelection({
       hospitalId,
       departmentId,
@@ -613,6 +817,7 @@ export class AppointmentService {
         )?.doctors[0]?.id,
     });
     const now = this.now();
+    const todayKey = istDateKey(now);
 
     const appointments = this.appointments
       .filter(
@@ -620,6 +825,7 @@ export class AppointmentService {
           appointment.hospitalId === hospitalId &&
           appointment.departmentId === departmentId &&
           (appointment.status === "requested" ||
+            appointment.queueDate === todayKey ||
             sameIstDay(appointment.scheduledAt, now) ||
             (appointment.checkedInAt !== null &&
               sameIstDay(appointment.checkedInAt, now))),
@@ -642,18 +848,48 @@ export class AppointmentService {
         this.toView(appointment),
       );
 
+    let currentServingToken = this.repository.getServingToken(
+      hospitalId,
+      departmentId,
+      todayKey,
+    );
+
+    if (currentServingToken === null) {
+      const inConsultation = appointments.find(
+        (view) => view.appointment.status === "in_consultation",
+      );
+      if (inConsultation && inConsultation.appointment.tokenNumber !== null) {
+        currentServingToken = inConsultation.appointment.tokenNumber;
+      }
+    }
+
+    const activeCount = appointments.filter((view) =>
+      ["checked_in", "waiting", "in_consultation"].includes(
+        view.appointment.status,
+      ),
+    ).length;
+
     return {
       appointments,
       waitEstimate: this.computeWaitEstimate({
         hospital: selection.hospital,
         department: selection.department,
       }),
+      currentServingToken,
+      currentServingDigitalToken:
+        currentServingToken !== null
+          ? formatDigitalToken(currentServingToken)
+          : null,
+      activeCount,
       source: "demo",
       demoLabel: APPOINTMENT_DEMO_LABEL,
     };
   }
 
-  createWalkIn(input: CreateWalkInInput): AppointmentView {
+  createWalkIn(
+    input: CreateWalkInInput,
+    staffIdentity?: AppointmentAccessIdentity,
+  ): AppointmentView {
     const hospitalId = asRequiredString(
       input.hospitalId,
       "Hospital",
@@ -662,6 +898,17 @@ export class AppointmentService {
       input.departmentId,
       "Department",
     );
+
+    if (staffIdentity) {
+      if (!isStaffAuthorizedForHospital(staffIdentity, hospitalId)) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to register walk-ins for this hospital.",
+        );
+      }
+    }
+
     const patientName = asPatientName(input.patientName);
     const hospital = this.hospitals.find(
       (candidate) => candidate.id === hospitalId,
@@ -696,6 +943,14 @@ export class AppointmentService {
     }
 
     const now = this.now();
+    const queueDate = istDateKey(now);
+    const tokenNumber = this.repository.allocateToken(
+      hospital.id,
+      department.id,
+      queueDate,
+    );
+    const digitalToken = formatDigitalToken(tokenNumber);
+
     const appointment = this.addAppointment({
       userId: null,
       patientName,
@@ -705,6 +960,10 @@ export class AppointmentService {
       status: "waiting",
       source: "walk_in",
       checkedInAt: now.toISOString(),
+      queueDate,
+      tokenNumber,
+      digitalToken,
+      calledAt: null,
     });
 
     return this.toView(appointment);
@@ -713,10 +972,27 @@ export class AppointmentService {
   transitionAppointment(
     appointmentId: string,
     input: TransitionAppointmentInput,
+    staffIdentity?: AppointmentAccessIdentity,
   ): AppointmentView {
     const appointment = this.findAppointment(
       appointmentId,
     );
+
+    if (staffIdentity) {
+      if (
+        !isStaffAuthorizedForHospital(
+          staffIdentity,
+          appointment.hospitalId,
+        )
+      ) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to update visits for this hospital.",
+        );
+      }
+    }
+
     const nextStatus = asStatus(input.status);
     const allowed =
       STAFF_TRANSITIONS[appointment.status] ?? [];
@@ -747,12 +1023,46 @@ export class AppointmentService {
     appointment.status = nextStatus;
     appointment.updatedAt = now.toISOString();
 
+    if (nextStatus === "confirmed" && appointment.tokenNumber === null) {
+      const queueDate =
+        appointment.queueDate ?? istDateKey(new Date(appointment.scheduledAt));
+      appointment.queueDate = queueDate;
+      appointment.tokenNumber = this.repository.allocateToken(
+        appointment.hospitalId,
+        appointment.departmentId,
+        queueDate,
+      );
+      appointment.digitalToken = formatDigitalToken(appointment.tokenNumber);
+    }
+
     if (nextStatus === "waiting") {
       appointment.checkedInAt = now.toISOString();
+      if (appointment.tokenNumber === null) {
+        const queueDate =
+          appointment.queueDate ??
+          istDateKey(new Date(appointment.scheduledAt));
+        appointment.queueDate = queueDate;
+        appointment.tokenNumber = this.repository.allocateToken(
+          appointment.hospitalId,
+          appointment.departmentId,
+          queueDate,
+        );
+        appointment.digitalToken = formatDigitalToken(appointment.tokenNumber);
+      }
     }
 
     if (nextStatus === "in_consultation") {
       appointment.consultationStartedAt = now.toISOString();
+      appointment.calledAt = now.toISOString();
+      if (appointment.tokenNumber !== null) {
+        const qDate = appointment.queueDate ?? istDateKey(now);
+        this.repository.setServingToken(
+          appointment.hospitalId,
+          appointment.departmentId,
+          qDate,
+          appointment.tokenNumber,
+        );
+      }
     }
 
     if (nextStatus === "completed") {
@@ -767,6 +1077,7 @@ export class AppointmentService {
       appointment.missedAt = now.toISOString();
     }
 
+    this.repository.saveAppointment(appointment);
     this.recordEvent(
       appointment.id,
       previousStatus,
@@ -982,6 +1293,10 @@ export class AppointmentService {
     status: AppointmentStatus;
     source: Appointment["source"];
     checkedInAt: string | null;
+    queueDate: string | null;
+    tokenNumber: number | null;
+    digitalToken: string | null;
+    calledAt: string | null;
   }): Appointment {
     const now = this.now();
 
@@ -1007,9 +1322,13 @@ export class AppointmentService {
       completedAt: null,
       cancelledAt: null,
       missedAt: null,
+      queueDate: input.queueDate,
+      tokenNumber: input.tokenNumber,
+      digitalToken: input.digitalToken,
+      calledAt: input.calledAt,
     };
 
-    this.appointments.push(appointment);
+    this.repository.saveAppointment(appointment);
     this.recordEvent(
       appointment.id,
       null,
@@ -1028,7 +1347,7 @@ export class AppointmentService {
     actorRole: AppointmentActorRole,
     now: Date,
   ): void {
-    this.events.push({
+    this.repository.recordEvent({
       id: randomUUID(),
       appointmentId,
       fromStatus,
@@ -1086,21 +1405,25 @@ export class AppointmentService {
   private buildGuidance(
     appointment: Appointment,
   ): AppointmentGuidance {
+    const tokenMessage = appointment.digitalToken
+      ? `Your digital token is ${appointment.digitalToken}. `
+      : "";
+
     const statusGuidance: Record<AppointmentStatus, string> = {
       requested:
-        "Your request is waiting for hospital confirmation. Do not travel until the status changes to Confirmed.",
+        "Your request is waiting for hospital confirmation. A digital queue token will be allocated upon confirmation.",
       confirmed:
-        "Arrive about 15 minutes before your appointment time. Check in here when you arrive or speak to registration staff. No physical token is needed.",
+        `${tokenMessage}Arrive about 15 minutes before your appointment time. Check in here when you arrive or speak to registration staff.`,
       checked_in:
-        "You are checked in. No physical token is needed. Watch for your name or refreshed status while you wait.",
+        `${tokenMessage}You are checked in. Watch your digital token and queue status on this screen.`,
       waiting:
-        "You are in the queue. Hospital staff will call your name. No physical token is needed.",
+        `${tokenMessage}You are in the queue. Hospital staff will call your digital token or name.`,
       in_consultation:
         "Your consultation is in progress. Ask hospital staff if you need help.",
       completed:
         "This visit is marked complete. Ask registration staff if you need a paper summary or follow-up instructions.",
       cancelled:
-        "This appointment is cancelled. Book another appointment or use walk-in registration.",
+        "This appointment is cancelled. The assigned digital token is retired and will not be reused.",
       missed:
         "Hospital staff marked this appointment as missed. Contact registration staff to rebook. Walk-ins remain possible.",
     };

@@ -119,6 +119,22 @@ router.get("/:id", (req, res) => {
   }
 });
 
+router.get("/:id/queue-snapshot", (req, res) => {
+  try {
+    const snapshot = appointmentService.getQueueSnapshot(
+      req.appointmentUser!,
+      req.params.id,
+    );
+
+    res.status(200).json({
+      success: true,
+      snapshot,
+    });
+  } catch (error) {
+    sendAppointmentError(res, error);
+  }
+});
+
 router.patch("/:id/reschedule", (req, res) => {
   try {
     const appointment =
@@ -173,10 +189,13 @@ staffRouter.use(appointmentAuth, requireAppointmentStaff);
 
 staffRouter.get("/queue", (req, res) => {
   try {
-    const queue = appointmentService.getQueue({
-      hospitalId: req.query.hospitalId,
-      departmentId: req.query.departmentId,
-    });
+    const queue = appointmentService.getQueue(
+      {
+        hospitalId: req.query.hospitalId,
+        departmentId: req.query.departmentId,
+      },
+      req.appointmentUser,
+    );
 
     res.status(200).json({
       success: true,
@@ -191,6 +210,7 @@ staffRouter.post("/walk-ins", (req, res) => {
   try {
     const appointment = appointmentService.createWalkIn(
       req.body ?? {},
+      req.appointmentUser,
     );
 
     res.status(201).json({
@@ -208,6 +228,7 @@ staffRouter.patch("/:id/status", (req, res) => {
       appointmentService.transitionAppointment(
         req.params.id,
         req.body ?? {},
+        req.appointmentUser,
       );
 
     res.status(200).json({
