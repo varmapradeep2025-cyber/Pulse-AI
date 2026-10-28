@@ -99,6 +99,7 @@ export type SimulationResult = {
   /* Impact. */
   projected_demand: number;
   projected_remaining_stock: number;
+  projected_remaining_stock_before_redistribution?: number;
   days_of_stock_remaining: number;
   safety_stock_breach: boolean;
   estimated_shortage_quantity: number;

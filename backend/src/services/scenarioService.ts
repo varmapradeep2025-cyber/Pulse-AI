@@ -103,6 +103,7 @@ export type SimulationResult = {
   /* Impact. */
   projected_demand: number;
   projected_remaining_stock: number;
+  projected_remaining_stock_before_redistribution?: number;
   days_of_stock_remaining: number;
   safety_stock_breach: boolean;
   estimated_shortage_quantity: number;
@@ -833,6 +834,7 @@ export async function simulateScenario(
 
       projected_demand: projectedDemand,
       projected_remaining_stock: projectedRemaining,
+      projected_remaining_stock_before_redistribution: projectedRemaining,
       days_of_stock_remaining: daysOfStock,
       safety_stock_breach: safetyBreach,
       estimated_shortage_quantity: shortageUnits,
@@ -850,6 +852,11 @@ export async function simulateScenario(
   });
 
   // 11. Redistribution pass — one facility's surplus vs another's projected shortage
+  for (const result of results) {
+    if (result.projected_remaining_stock_before_redistribution === undefined) {
+      result.projected_remaining_stock_before_redistribution = result.projected_remaining_stock;
+    }
+  }
   applyRedistribution(results);
 
   // 12. Scenario-level summary
