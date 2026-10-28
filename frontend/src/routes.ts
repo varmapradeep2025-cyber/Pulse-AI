@@ -18,6 +18,7 @@ export const ROUTES = {
   hospitalInventoryImport: "/hospital/inventory-import",
   hospitalIntelligence: "/hospital/intelligence",
   hospitalResourceBridge: "/hospital/resource-bridge",
+  hospitalScenarios: "/hospital/scenarios",
 } as const;
 
 export interface PortalNavItem {
@@ -80,6 +81,10 @@ export const HOSPITAL_NAV_ITEMS = [
   {
     to: ROUTES.hospitalIntelligence,
     label: "Hospital Intelligence",
+  },
+  {
+    to: ROUTES.hospitalScenarios,
+    label: "Scenarios",
   },
   {
     to: ROUTES.hospitalResourceBridge,

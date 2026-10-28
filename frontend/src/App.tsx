@@ -21,6 +21,7 @@ import HospitalQueuePage from "./pages/HospitalQueuePage";
 import InventoryImportPage from "./pages/InventoryImportPage";
 import IntelligencePage from "./pages/IntelligencePage";
 import ResourceBridgePage from "./pages/ResourceBridgePage";
+import ScenarioSimulationPage from "./pages/ScenarioSimulationPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import {
   ROUTES,
@@ -90,6 +91,10 @@ export default function App() {
                 <Route
                   path={ROUTES.hospitalResourceBridge}
                   element={<ResourceBridgePage />}
+                />
+                <Route
+                  path={ROUTES.hospitalScenarios}
+                  element={<ScenarioSimulationPage />}
                 />
               </Route>
 

@@ -165,9 +165,10 @@ export async function runScenarioSimulation(
     throw new Error("Your session is invalid or has expired. Sign in again.");
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/scenarios/simulate`,
-    {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/api/scenarios/simulate`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -177,8 +178,12 @@ export async function runScenarioSimulation(
         scenarioId,
       }),
       cache: "no-store",
-    },
-  );
+    });
+  } catch {
+    throw new Error(
+      "The scenario service is unreachable. Check that the backend is running and try again.",
+    );
+  }
 
   if (response.status === 401) {
     throw new Error("Your session is invalid or has expired. Sign in again.");
