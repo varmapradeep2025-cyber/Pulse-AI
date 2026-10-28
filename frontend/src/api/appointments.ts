@@ -84,6 +84,10 @@ export interface PublicAppointment {
   completedAt: string | null;
   cancelledAt: string | null;
   missedAt: string | null;
+  queueDate?: string | null;
+  tokenNumber?: number | null;
+  digitalToken?: string | null;
+  calledAt?: string | null;
 }
 
 export interface AppointmentEvent {
@@ -128,8 +132,25 @@ export interface AppointmentView {
 export interface QueueView {
   appointments: AppointmentView[];
   waitEstimate: WaitEstimate;
+  currentServingToken?: number | null;
+  currentServingDigitalToken?: string | null;
+  activeCount?: number;
   source: "demo";
   demoLabel: string;
+}
+
+export interface QueueSnapshot {
+  appointmentId: string;
+  reference: string;
+  status: AppointmentStatus;
+  queueDate: string | null;
+  tokenNumber: number | null;
+  digitalToken: string | null;
+  currentServingToken: number | null;
+  currentServingDigitalToken: string | null;
+  patientsAhead: number;
+  waitEstimate: WaitEstimate;
+  updatedAt: string;
 }
 
 export interface AppointmentSelection {
@@ -380,4 +401,15 @@ export async function transitionAppointmentStatus(
   );
 
   return payload.appointment;
+}
+
+export async function getAppointmentQueueSnapshot(
+  appointmentId: string,
+): Promise<QueueSnapshot> {
+  const payload = await request<{
+    success: true;
+    snapshot: QueueSnapshot;
+  }>(`/api/appointments/${encodeURIComponent(appointmentId)}/queue-snapshot`);
+
+  return payload.snapshot;
 }

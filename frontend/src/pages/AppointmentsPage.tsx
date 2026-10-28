@@ -24,6 +24,8 @@ import {
   type AppointmentView,
   type AppointmentSlot,
   type WaitEstimate,
+  getAppointmentQueueSnapshot,
+  type QueueSnapshot,
 } from "../api/appointments";
 
 const ACTIVE_STATUSES: AppointmentStatus[] = [
@@ -229,6 +231,23 @@ function AppointmentDetail({
   );
   const [actionError, setActionError] = useState("");
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<QueueSnapshot | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (appointment.status === "waiting" || appointment.status === "checked_in") {
+      getAppointmentQueueSnapshot(appointment.id)
+        .then((data) => {
+          if (!cancelled) setSnapshot(data);
+        })
+        .catch(() => {});
+    } else {
+      setSnapshot(null);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [appointment.id, appointment.status]);
   const [availability, setAvailability] =
     useState<AppointmentAvailability | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -298,7 +317,7 @@ function AppointmentDetail({
       const updated = await checkInAppointment(appointment.id);
       onUpdated(
         updated,
-        "You are checked in and waiting. No physical token is needed.",
+        "You are checked in and waiting. Your digital queue token is active.",
       );
     } catch (error) {
       setActionError(errorMessage(error));
@@ -378,6 +397,22 @@ function AppointmentDetail({
 
       <div className="appointment-detail__summary">
         <AppointmentStatusBadge status={appointment.status} />
+        {appointment.digitalToken && (
+          <span
+            className="badge badge--token"
+            style={{
+              backgroundColor: "#0284c7",
+              color: "#ffffff",
+              padding: "2px 8px",
+              borderRadius: "4px",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              marginLeft: "6px",
+            }}
+          >
+            Token: {appointment.digitalToken}
+          </span>
+        )}
         <p>
           <strong>{formatDateTime(appointment.scheduledAt)}</strong>
           <br />
@@ -461,6 +496,32 @@ function AppointmentDetail({
         </form>
       )}
 
+      {snapshot && (appointment.status === "waiting" || appointment.status === "checked_in") && (
+        <div
+          className="appointment-estimate"
+          style={{
+            borderLeft: "4px solid #0284c7",
+            padding: "10px 14px",
+            marginBottom: "12px",
+            background: "rgba(2, 132, 199, 0.06)",
+            borderRadius: "4px",
+          }}
+        >
+          <strong>Digital Token: {snapshot.digitalToken ?? appointment.digitalToken}</strong>
+          <p style={{ margin: "4px 0" }}>
+            {snapshot.currentServingDigitalToken
+              ? `Now serving: ${snapshot.currentServingDigitalToken}`
+              : "Consultation in preparation"}
+            {" • "}
+            {snapshot.patientsAhead === 0
+              ? "You are next in line!"
+              : `${snapshot.patientsAhead} ${
+                  snapshot.patientsAhead === 1 ? "patient" : "patients"
+                } ahead`}
+          </p>
+          <small>Queue position updated: {formatShortDateTime(snapshot.updatedAt)}</small>
+        </div>
+      )}
       <WaitEstimateCard estimate={view.waitEstimate} />
 
       <div className="appointment-guidance">
@@ -761,7 +822,7 @@ export default function AppointmentsPage() {
         view,
         view.appointment.status === "requested"
           ? "Appointment request sent. It is awaiting hospital confirmation."
-          : "Appointment booked. No physical token is needed.",
+          : "Appointment booked. Digital queue token allocated.",
       );
       setSelectedSlotId("");
       setAvailabilityVersion((version) => version + 1);
@@ -784,7 +845,7 @@ export default function AppointmentsPage() {
           <h1>Appointments</h1>
           <p>
             Request an appointment, check in when you arrive, and follow your
-            place without a physical token.
+            place with your digital queue token.
           </p>
         </div>
         <div className="appointment-page-meta">
@@ -1039,7 +1100,7 @@ export default function AppointmentsPage() {
             />
           ) : (
             <section className="appointment-help-card">
-              <p className="appointment-eyebrow">No physical token</p>
+              <p className="appointment-eyebrow">Digital queue system</p>
               <h2>What happens on arrival</h2>
               <ol>
                 <li>Check in here when you arrive, or speak to registration staff.</li>
