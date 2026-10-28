@@ -96,6 +96,10 @@ export interface Appointment {
   completedAt: string | null;
   cancelledAt: string | null;
   missedAt: string | null;
+  queueDate: string | null;
+  tokenNumber: number | null;
+  digitalToken: string | null;
+  calledAt: string | null;
 }
 
 export type PublicAppointment = Omit<Appointment, "userId">;
@@ -146,8 +150,25 @@ export interface AppointmentView {
 export interface QueueView {
   appointments: AppointmentView[];
   waitEstimate: WaitEstimate;
+  currentServingToken: number | null;
+  currentServingDigitalToken: string | null;
+  activeCount: number;
   source: "demo";
   demoLabel: string;
+}
+
+export interface QueueSnapshot {
+  appointmentId: string;
+  reference: string;
+  status: AppointmentStatus;
+  queueDate: string | null;
+  tokenNumber: number | null;
+  digitalToken: string | null;
+  currentServingToken: number | null;
+  currentServingDigitalToken: string | null;
+  patientsAhead: number;
+  waitEstimate: WaitEstimate;
+  updatedAt: string;
 }
 
 export interface CreateAppointmentInput {
