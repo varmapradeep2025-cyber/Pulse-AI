@@ -24,6 +24,7 @@ test("booking confirmed appointment sends immediate confirmation notification an
   const emailMock = notifService.getEmailProvider() as MockEmailProvider;
   const apptService = new AppointmentService({
     notificationService: notifService,
+    now: () => new Date("2026-10-26T08:00:00+05:30"),
   });
 
   const catalog = apptService.getCatalog();
@@ -65,6 +66,7 @@ test("check-in generates queue_registered notification", () => {
   const notifService = new NotificationService();
   const apptService = new AppointmentService({
     notificationService: notifService,
+    now: () => new Date("2026-10-26T08:00:00+05:30"),
   });
 
   const catalog = apptService.getCatalog();
@@ -106,6 +108,7 @@ test("doctor calling patient generates queue_called and approaching turn alerts"
   const notifService = new NotificationService();
   const apptService = new AppointmentService({
     notificationService: notifService,
+    now: () => new Date("2026-10-26T08:00:00+05:30"),
   });
 
   const catalog = apptService.getCatalog();

@@ -20,6 +20,7 @@ test("assistant returns accurate appointment summary for citizen with scheduled 
   const notifService = new NotificationService();
   const apptService = new AppointmentService({
     notificationService: notifService,
+    now: () => new Date("2026-10-26T08:00:00+05:30"),
   });
   const assistantService = new AssistantToolsService(apptService, notifService);
 

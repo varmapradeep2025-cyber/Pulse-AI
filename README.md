@@ -740,7 +740,7 @@ the database through the backend client.
 | backend | `npm run build` | Compile TypeScript to `dist/` |
 | backend | `npm run start` | Run the compiled build |
 | backend | `npm run typecheck` | `tsc --noEmit` typecheck |
-| backend | `npm test` | Run complete test suite (95 tests covering queues, scheduler, notifications, scenarios, forecasting, imports, and assistant tools) |
+| backend | `npm test` | Run complete test suite (100 tests covering queues, scheduler, notifications, scenarios, forecasting, imports, and assistant tools) |
 | ml-service | `python -m uvicorn ...` | FastAPI dev server (port 8000) |
 
 ---
