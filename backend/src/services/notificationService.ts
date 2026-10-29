@@ -34,6 +34,7 @@ import {
   type SmsProvider,
   MockSmsProvider,
   Fast2SMSProvider,
+  TwilioSmsProvider,
 } from "./providers/smsProvider.js";
 
 export class NotificationError extends Error {

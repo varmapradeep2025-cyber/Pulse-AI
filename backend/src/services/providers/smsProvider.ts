@@ -251,3 +251,95 @@ export class ExotelSmsProvider implements SmsProvider {
     }
   }
 }
+
+export class TwilioSmsProvider implements SmsProvider {
+  readonly name = "twilio";
+
+  constructor(
+    private readonly accountSid: string,
+    private readonly authToken: string,
+    private readonly fromNumber: string,
+  ) {}
+
+  async sendSms(message: SmsMessage): Promise<NotificationDispatchResult> {
+    const normalized = normalizeIndianPhoneNumber(message.phoneNumber);
+    if (!normalized) {
+      return {
+        channel: "sms",
+        recipient: message.phoneNumber,
+        status: "failed",
+        provider: this.name,
+        errorMessage: "Invalid phone number format. Expected 10-digit Indian number.",
+      };
+    }
+
+    if (!this.accountSid || !this.authToken || !this.fromNumber) {
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "failed",
+        provider: this.name,
+        errorMessage: "Twilio credentials not configured in backend environment.",
+      };
+    }
+
+    const isWhatsApp = this.fromNumber.startsWith("whatsapp:");
+    const to = isWhatsApp ? `whatsapp:${normalized}` : normalized;
+
+    try {
+      const auth = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`;
+
+      const formData = new URLSearchParams();
+      formData.append("From", this.fromNumber);
+      formData.append("To", to);
+      formData.append("Body", message.message);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData.toString(),
+      });
+
+      const data = (await response.json()) as {
+        sid?: string;
+        error_code?: number | null;
+        error_message?: string | null;
+      };
+
+      if (!response.ok || data.error_code) {
+        const errorMsg = data.error_message || `Twilio HTTP ${response.status}`;
+        console.warn(`[SMS Twilio] Delivery failed to ${normalized}: ${errorMsg}`);
+        return {
+          channel: "sms",
+          recipient: normalized,
+          status: "failed",
+          provider: this.name,
+          errorMessage: `Twilio error: ${errorMsg}`,
+        };
+      }
+
+      console.log(`[SMS Twilio] ${isWhatsApp ? "WhatsApp" : "SMS"} successfully sent to ${normalized}! SID: ${data.sid}`);
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "accepted",
+        provider: this.name,
+        providerMessageId: data.sid ?? `twilio-${Date.now()}`,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown network error";
+      console.warn(`[SMS Twilio] Network error: ${errorMsg}`);
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "failed",
+        provider: this.name,
+        errorMessage: errorMsg,
+      };
+    }
+  }
+}
