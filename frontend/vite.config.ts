@@ -5,5 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    strictPort: false, // allow Vite to find next free port; backend allows 5173-5177
   },
 });

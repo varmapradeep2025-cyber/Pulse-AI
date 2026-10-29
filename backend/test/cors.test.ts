@@ -14,15 +14,24 @@ test("frontend origins default to the local Vite server", () => {
   assert.deepEqual(parseFrontendOrigins(""), [...DEFAULT_FRONTEND_ORIGINS]);
 });
 
-test("default origins include both localhost and 127.0.0.1 loopback", () => {
-  assert.ok(
-    DEFAULT_FRONTEND_ORIGINS.includes("http://localhost:5173"),
-    "must include http://localhost:5173",
-  );
-  assert.ok(
-    DEFAULT_FRONTEND_ORIGINS.includes("http://127.0.0.1:5173"),
-    "must include http://127.0.0.1:5173 for IPv4 loopback browsers",
-  );
+test("default origins cover localhost and 127.0.0.1 across Vite auto-port range", () => {
+  // Vite increments port when 5173 is busy: 5173 → 5174 → 5175 → ...
+  // All must be whitelisted so CORS never breaks on port drift.
+  const mustInclude = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+  ];
+
+  for (const origin of mustInclude) {
+    assert.ok(
+      DEFAULT_FRONTEND_ORIGINS.includes(origin as never),
+      `DEFAULT_FRONTEND_ORIGINS must include ${origin}`,
+    );
+  }
 });
 
 test("frontend origins are trimmed, deduplicated, and configurable", () => {
