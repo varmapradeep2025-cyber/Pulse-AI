@@ -29,11 +29,7 @@ function metricCard(label: string, value: string, sub?: string) {
     <div className="intel-metric">
       <div className="intel-metric__label">{label}</div>
       <div className="intel-metric__value">{value}</div>
-      {sub && (
-        <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: "2px" }}>
-          {sub}
-        </div>
-      )}
+      {sub && <div className="intel-metric__sub">{sub}</div>}
     </div>
   );
 }
@@ -57,16 +53,16 @@ function DemandSparkline({ series }: { series: SeriesForecast }) {
 
   return (
     <div>
-      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b", marginBottom: "6px" }}>
+      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "6px" }}>
         Demand — 30-day history + 7-day ML forecast
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", maxWidth: width, height: "auto", display: "block" }} role="img" aria-label="Daily demand history and forecast">
-        <line x1="0" y1={height - 6} x2={width} y2={height - 6} stroke="#e2e8f0" strokeWidth="1" />
-        <polyline points={historyLine} fill="none" stroke="#2563eb" strokeWidth="2" />
+        <line x1="0" y1={height - 6} x2={width} y2={height - 6} stroke="var(--color-border)" strokeWidth="1" />
+        <polyline points={historyLine} fill="none" stroke="#38bdf8" strokeWidth="2" />
         <polyline points={forecastLine} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />
       </svg>
-      <div style={{ display: "flex", gap: "14px", fontSize: "0.72rem", color: "#64748b" }}>
-        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#2563eb", verticalAlign: "middle", marginRight: "4px" }} /> history</span>
+      <div style={{ display: "flex", gap: "14px", fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
+        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#38bdf8", verticalAlign: "middle", marginRight: "4px" }} /> history</span>
         <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#f59e0b", verticalAlign: "middle", marginRight: "4px" }} /> forecast</span>
       </div>
     </div>
@@ -89,7 +85,7 @@ function StockProjection({ series }: { series: SeriesForecast }) {
 
   return (
     <div>
-      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b", marginBottom: "6px" }}>
+      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "6px" }}>
         Stock projection (14-day view) vs safety stock {formatNumber(series.safetyStock)}
       </div>
       <div style={{ position: "relative" }}>
@@ -106,15 +102,15 @@ function StockProjection({ series }: { series: SeriesForecast }) {
             const barHeight = (value / max) * (height - 12);
             const x = index * (barWidth + 4) + 2;
             const y = height - 6 - barHeight;
-            const colour = value < 0 ? "#dc2626" : value < series.safetyStock ? "#f59e0b" : "#2563eb";
+            const colour = value < 0 ? "#f87171" : value < series.safetyStock ? "#f59e0b" : "#38bdf8";
             return <rect key={index} x={x} y={y} width={barWidth} height={Math.max(1, barHeight)} fill={colour} rx="2" />;
           })}
         </svg>
       </div>
-      <div style={{ display: "flex", gap: "14px", fontSize: "0.72rem", color: "#64748b" }}>
-        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#2563eb", verticalAlign: "middle", marginRight: "4px" }} /> above safety</span>
+      <div style={{ display: "flex", gap: "14px", fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
+        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#38bdf8", verticalAlign: "middle", marginRight: "4px" }} /> above safety</span>
         <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#f59e0b", verticalAlign: "middle", marginRight: "4px" }} /> below safety</span>
-        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#dc2626", verticalAlign: "middle", marginRight: "4px" }} /> stock-out</span>
+        <span><span style={{ display: "inline-block", width: "10px", height: "3px", background: "#f87171", verticalAlign: "middle", marginRight: "4px" }} /> stock-out</span>
       </div>
     </div>
   );
@@ -214,8 +210,8 @@ export default function IntelligencePage() {
       </div>
 
       {/* Pipeline */}
-      <section style={{ borderRadius: "14px", border: "1px solid #e2e8f0", background: "#fff", padding: "16px 18px" }}>
-        <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b", marginBottom: "10px" }}>
+      <section className="intel-pipeline-card">
+        <div className="intel-pipeline-card__label">
           Intelligence pipeline
         </div>
         <div className="intel-pipeline">
@@ -245,8 +241,8 @@ export default function IntelligencePage() {
           )}
           {metricCard(
             "Improvement",
-            improvement > 0 ? `${improvement.toFixed(1)}% lower error` : "no gain",
-            improvement > 0 ? "vs the Phase-1 predictor" : "within noise of baseline",
+            improvement > 0 ? `${improvement.toFixed(1)}%` : "no gain",
+            improvement > 0 ? "lower error vs Phase-1" : "within noise of baseline",
           )}
           {metricCard("RMSE", formatNumber(summary.model.ml.rmse))}
           {metricCard("MAPE", `${formatNumber(summary.model.ml.mape)}%`)}
@@ -261,7 +257,7 @@ export default function IntelligencePage() {
         {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((level) => (
           <div key={level} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {riskBadge(level)}
-            <span style={{ color: "#475569" }}>{byRisk(level)}</span>
+            <span style={{ color: "var(--color-text-muted)" }}>{byRisk(level)}</span>
           </div>
         ))}
       </section>
@@ -269,7 +265,7 @@ export default function IntelligencePage() {
       {/* Attention ranking */}
       <section>
         <h2 style={{ marginBottom: "6px" }}>Needs attention first</h2>
-        <p style={{ color: "#64748b", fontSize: "0.9rem", marginTop: 0 }}>
+        <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem", marginTop: 0 }}>
           Ranked by risk severity, then projected stock-out / safety-breach day. Select a row for the full detail.
         </p>
 
@@ -307,13 +303,13 @@ export default function IntelligencePage() {
                   <span style={{ fontWeight: 600 }}>{hospitalName(item.hospitalId)}</span>
                   <span>
                     {medicineName(item.medicineId)}{" "}
-                    <span style={{ color: "#64748b", fontSize: "0.8rem" }}>({medicineUnit(item.medicineId)})</span>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>({medicineUnit(item.medicineId)})</span>
                   </span>
                   <span>{riskBadge(item.riskLevel)}</span>
-                  <span className="intel-sheet__hide-mobile" style={{ color: "#475569" }}>
+                  <span className="intel-sheet__hide-mobile" style={{ color: "var(--color-text-muted)" }}>
                     {formatNumber(item.predictedDailyDemand)}
                   </span>
-                  <span className="intel-sheet__hide-mobile" style={{ color: "#475569" }}>
+                  <span className="intel-sheet__hide-mobile" style={{ color: "var(--color-text-muted)" }}>
                     {stockOut
                       ? `stock ${item.daysToStockout}d`
                       : item.belowSafetyDay !== null
@@ -328,7 +324,7 @@ export default function IntelligencePage() {
                 {isOpen && (
                   <div className="intel-sheet__detail">
                     <div>
-                      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b", marginBottom: "6px" }}>
+                      <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-muted)", marginBottom: "6px" }}>
                         Recommended action
                       </div>
                       <p style={{ margin: "0 0 10px" }}>{item.suggestedAction}</p>
@@ -364,7 +360,7 @@ export default function IntelligencePage() {
           })}
         </div>
 
-        <p style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "10px" }}>
+        <p style={{ color: "var(--color-text-muted)", fontSize: "0.82rem", marginTop: "10px" }}>
           Model: {summary.model.name} · {summary.model.trainRows.toLocaleString()} training rows ·{" "}
           {summary.model.evaluationDays} holdout evaluation days. Forecasts are demand projections, not medical guidance.
         </p>
