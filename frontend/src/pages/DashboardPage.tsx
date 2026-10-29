@@ -80,6 +80,21 @@ const RISK_ORDER: Record<RiskLabel, number> = {
 const DEMO_DISCLAIMER =
   "Prototype / Demonstration Data — Not for Clinical Decision-Making";
 
+function scenarioDataLabel(response: ScenarioResponse): string {
+  switch (response.dataProvenance) {
+    case "imported-real":
+      return "Imported inventory reports";
+    case "imported-synthetic":
+      return "Imported synthetic inventory reports";
+    case "legacy":
+      return "Seeded inventory and demand history";
+    default:
+      return response.source === "demo"
+        ? "Deterministic demo dataset (not live hospital data)"
+        : "Supabase";
+  }
+}
+
 const frameStyle = {
   border: "1px solid #e5e7eb",
   borderRadius: "10px",
@@ -380,16 +395,21 @@ export default function DashboardPage() {
                     padding: "4px 8px",
                     borderRadius: "6px",
                     background:
-                      response.source === "demo" ? "#fef3c7" : "#ecfdf5",
+                      response.dataProvenance === "synthetic" ||
+                      response.dataProvenance === "imported-synthetic" ||
+                      response.source === "demo"
+                        ? "#fef3c7"
+                        : "#ecfdf5",
                     color:
-                      response.source === "demo" ? "#92400e" : "#065f46",
+                      response.dataProvenance === "synthetic" ||
+                      response.dataProvenance === "imported-synthetic" ||
+                      response.source === "demo"
+                        ? "#92400e"
+                        : "#065f46",
                     fontWeight: 600,
                   }}
                 >
-                  Data source:{" "}
-                  {response.source === "demo"
-                    ? "Deterministic demo dataset (not live hospital data)"
-                    : "Supabase"}
+                  Data source: {scenarioDataLabel(response)}
                 </p>
 
                 <p style={{ margin: "6px 0" }}>

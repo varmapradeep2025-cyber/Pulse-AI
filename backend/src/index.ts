@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import { env } from "./config/env.js";
 import healthRouter from "./routes/health.js";
-import dbTestRouter from "./routes/dbtest.js";
 import scenarioRouter from "./routes/scenario.js";
 import intelligenceRouter from "./routes/intelligence.js";
 import {
@@ -13,11 +12,27 @@ import {
 import inventoryImportRouter from "./routes/inventoryImport.js";
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = new Set(env.FRONTEND_ORIGINS);
+
+app.disable("x-powered-by");
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+    maxAge: 600,
+  }),
+);
+app.use(express.json({ limit: "1mb" }));
 
 app.use(healthRouter);
-app.use(dbTestRouter);
 app.use(scenarioRouter);
 app.use(intelligenceRouter);
 app.use("/api/appointments", appointmentRouter);

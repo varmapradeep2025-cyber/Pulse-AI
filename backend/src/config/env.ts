@@ -28,6 +28,14 @@ const INVENTORY_STAFF_USER_IDS = (
   .map((value) => value.trim())
   .filter(Boolean);
 
+const FRONTEND_ORIGINS = (
+  process.env.FRONTEND_ORIGINS ??
+  "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173"
+)
+  .split(/[,;\s]+/)
+  .map((value) => value.trim())
+  .filter(Boolean);
+
 export const env = {
   PORT,
   HOST,
@@ -36,4 +44,5 @@ export const env = {
   SUPABASE_SERVICE_ROLE_KEY,
   APPOINTMENT_STAFF_USER_IDS,
   INVENTORY_STAFF_USER_IDS,
+  FRONTEND_ORIGINS,
 };
