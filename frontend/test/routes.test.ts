@@ -25,12 +25,13 @@ test("citizen navigation keeps the six citizen sections in order", () => {
   ]);
 });
 
-test("hospital navigation exposes the five operations sections", () => {
+test("hospital navigation exposes the six operations sections", () => {
   assert.deepEqual(navPairs(HOSPITAL_NAV_ITEMS), [
     ["/hospital", "Dashboard"],
     ["/hospital/queue", "Queue"],
     ["/hospital/inventory-import", "Inventory Import"],
     ["/hospital/intelligence", "Hospital Intelligence"],
+    ["/hospital/scenarios", "Scenarios"],
     ["/hospital/resource-bridge", "Resource Bridge"],
   ]);
 });
