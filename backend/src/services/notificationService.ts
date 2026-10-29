@@ -255,6 +255,7 @@ export class NotificationService {
     scheduledAt: string;
     digitalToken?: string | null;
     userEmail?: string;
+    phoneNumber?: string;
   }): ScheduledNotificationJob[] {
     const prefs = this.getPreferences(input.userId);
     const scheduledTime = new Date(input.scheduledAt).getTime();
@@ -545,6 +546,9 @@ export class NotificationService {
 function buildNotificationService(): NotificationService {
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM_EMAIL;
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioFrom = process.env.TWILIO_FROM_NUMBER;
   const fast2smsApiKey = process.env.FAST2SMS_API_KEY;
   const appUrl = process.env.APP_URL || "https://pulse-ai-ruby.vercel.app";
 
@@ -552,13 +556,24 @@ function buildNotificationService(): NotificationService {
     ? new ResendEmailProvider(resendApiKey, resendFrom)
     : new MockEmailProvider();
 
-  const smsProvider: SmsProvider = fast2smsApiKey
-    ? new Fast2SMSProvider(fast2smsApiKey)
-    : new MockSmsProvider();
+  let smsProvider: SmsProvider;
+  if (twilioSid && twilioToken && twilioFrom) {
+    smsProvider = new TwilioSmsProvider(twilioSid, twilioToken, twilioFrom);
+  } else if (fast2smsApiKey) {
+    smsProvider = new Fast2SMSProvider(fast2smsApiKey);
+  } else {
+    smsProvider = new MockSmsProvider();
+  }
 
   const activeProviders: string[] = [];
   if (resendApiKey) activeProviders.push("resend-email");
-  if (fast2smsApiKey) activeProviders.push("fast2sms-sms");
+  if (twilioSid && twilioToken && twilioFrom) {
+    activeProviders.push(
+      twilioFrom.startsWith("whatsapp:") ? "twilio-whatsapp" : "twilio-sms",
+    );
+  } else if (fast2smsApiKey) {
+    activeProviders.push("fast2sms-sms");
+  }
   if (activeProviders.length === 0) activeProviders.push("mock (no keys set)");
 
   if (process.env.NODE_ENV !== "test") {
