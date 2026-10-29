@@ -476,6 +476,8 @@ async function scenarioDb() {
   return supabase;
 }
 
+let supabaseScenariosAvailable: boolean | null = null;
+
 function createDefaultScenarioDataProvider(
   scope?: OperationalScope,
 ): ScenarioDataProvider {
@@ -489,21 +491,44 @@ function createDefaultScenarioDataProvider(
 
   return {
     async loadScenario(id) {
-      const supabase = await scenarioDb();
-
-      const { data, error } = await supabase
-        .from("scenarios")
-        .select(
-          "id, name, description, disruption_type, duration_days, demand_change_percent, transport_delay_days",
-        )
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) {
-        throw new Error(`Scenario lookup failed: ${error.message}`);
+      if (supabaseScenariosAvailable === false) {
+        return null;
       }
 
-      return (data as ScenarioRecord | null) ?? null;
+      try {
+        const supabase = await scenarioDb();
+
+        const { data, error } = await supabase
+          .from("scenarios")
+          .select(
+            "id, name, description, disruption_type, duration_days, demand_change_percent, transport_delay_days",
+          )
+          .eq("id", id)
+          .maybeSingle();
+
+        if (error) {
+          if (
+            error.code === "42P01" ||
+            error.code === "PGRST205" ||
+            /could not find the table|does not exist|schema cache|fetch failed/i.test(
+              error.message ?? "",
+            )
+          ) {
+            supabaseScenariosAvailable = false;
+            return null;
+          }
+          throw new Error(`Scenario lookup failed: ${error.message}`);
+        }
+
+        return (data as ScenarioRecord | null) ?? null;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/fetch failed|ECONNREFUSED/i.test(message)) {
+          supabaseScenariosAvailable = false;
+          return null;
+        }
+        throw err;
+      }
     },
 
     async loadInventory() {

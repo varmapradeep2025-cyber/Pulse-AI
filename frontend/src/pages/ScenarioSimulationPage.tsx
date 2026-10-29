@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { runScenarioSimulation, type ScenarioResponse } from "../api/scenarios";
 import { saveScenarioReport } from "../data/scenarioReports";
 import LoadingState from "../components/LoadingState";
@@ -306,6 +307,45 @@ export default function ScenarioSimulationPage() {
         </p>
         <span className="sim-disclaimer">⚠ Prototype — results use demonstration or synthetic data unless real inventory has been imported</span>
       </header>
+
+      {/* Operational Dataset Provenance Banner */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+          padding: "0.85rem 1.1rem",
+          background: "var(--color-surface, #fff)",
+          border: "1px solid var(--color-border, #e2e8f0)",
+          borderRadius: "var(--radius, 8px)",
+          marginBottom: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontSize: "1.2rem" }}>📦</span>
+          <div>
+            <strong>Operational Inventory Dataset:</strong>{" "}
+            <span style={{ color: "var(--color-text-muted, #475569)" }}>
+              {result?.dataProvenance === "imported-real"
+                ? "Active Hospital Excel Ingestion (Real Data)"
+                : result?.dataProvenance === "imported-synthetic"
+                  ? "Active Hospital Excel Ingestion (Synthetic Demo Data)"
+                  : result?.dataProvenance === "legacy"
+                    ? "Supabase Database Inventory"
+                    : "Standard Catalog Inventory (Demo)"}
+            </span>
+          </div>
+        </div>
+        <Link
+          to="/operations/inventory-import"
+          className="btn btn--secondary btn--small"
+          style={{ textDecoration: "none", fontSize: "0.85rem", padding: "0.35rem 0.75rem" }}
+        >
+          Import Custom Inventory Workbook →
+        </Link>
+      </div>
 
       {/* Scenario selector + controls */}
       <div className="sim-panel">

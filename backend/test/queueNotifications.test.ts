@@ -38,7 +38,7 @@ test("booking confirmed appointment sends immediate confirmation notification an
     doctorId: doctor.id,
   });
 
-  const slot = avail.days[0].slots[0];
+  const slot = avail.days.flatMap((d) => d.slots)[0];
 
   const view = apptService.createAppointment(DEMO_USER, {
     hospitalId: hospital.id,
@@ -78,7 +78,7 @@ test("check-in generates queue_registered notification", () => {
     departmentId: department.id,
     doctorId: doctor.id,
   });
-  const slot = avail.days[0].slots[0];
+  const slot = avail.days.flatMap((d) => d.slots)[0];
 
   const view = apptService.createAppointment(DEMO_USER, {
     hospitalId: hospital.id,

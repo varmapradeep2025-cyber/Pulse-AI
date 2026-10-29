@@ -4,6 +4,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { Link } from "react-router-dom";
 import {
   InventoryApiError,
   confirmInventoryImport,
@@ -298,11 +299,17 @@ export default function InventoryImportPage() {
     null,
   );
 
-  async function loadSummary() {
+  async function loadSummary(options?: { refreshSession?: boolean } | unknown) {
+    const refreshSession =
+      typeof options === "object" &&
+      options !== null &&
+      "refreshSession" in options
+        ? Boolean((options as { refreshSession?: boolean }).refreshSession)
+        : false;
     setSummaryLoading(true);
 
     try {
-      const nextSummary = await getInventorySummary();
+      const nextSummary = await getInventorySummary({ refreshSession });
       setSummary(nextSummary);
       setSummaryError(null);
     } catch (error) {
@@ -488,20 +495,36 @@ export default function InventoryImportPage() {
 
         {accessDenied && (
           <div className="appointment-access-card inventory-access-card">
-            <h2>Inventory access required</h2>
+            <h2>
+              {summaryError instanceof InventoryApiError &&
+              summaryError.code === "INVENTORY_HOSPITAL_SCOPE_REQUIRED"
+                ? "Inventory hospital scope required"
+                : "Inventory access required"}
+            </h2>
             <p>
-              This account is signed in but is not assigned to inventory
-              access. Ask an administrator to add your Supabase user ID to
-              <code>INVENTORY_STAFF_USER_IDS</code>, or set trusted
-              <code>app_metadata.inventory_staff</code> and at least one
-              hospital ID in <code>app_metadata.inventory_hospital_ids</code>.
+              {summaryError instanceof InventoryApiError &&
+              summaryError.code === "INVENTORY_HOSPITAL_SCOPE_REQUIRED"
+                ? "Your account is assigned inventory staff access, but has no hospital IDs configured. Ask an administrator to assign at least one hospital ID in app_metadata.inventory_hospital_ids (e.g. [1, 2]), or grant full access via INVENTORY_STAFF_USER_IDS."
+                : "This account is signed in but is not assigned to inventory access. Ask an administrator to add your Supabase user ID to INVENTORY_STAFF_USER_IDS, or set trusted app_metadata.inventory_staff and at least one hospital ID in app_metadata.inventory_hospital_ids."}
             </p>
+            {summaryError instanceof InventoryApiError &&
+              Boolean(
+                (summaryError.details as { userId?: string } | undefined)?.userId,
+              ) && (
+                <p className="inventory-muted" style={{ marginTop: "8px" }}>
+                  Your Supabase user ID:{" "}
+                  <code>
+                    {(summaryError.details as { userId: string }).userId}
+                  </code>
+                </p>
+              )}
             <button
               className="btn btn--secondary"
-              onClick={loadSummary}
+              disabled={summaryLoading}
+              onClick={() => loadSummary({ refreshSession: true })}
               type="button"
             >
-              Check access again
+              {summaryLoading ? "Checking access..." : "Check access again"}
             </button>
           </div>
         )}
@@ -808,6 +831,49 @@ export default function InventoryImportPage() {
                     : `Confirm import (${preview.acceptedCount})`}
               </button>
             </div>
+
+            {importResult && (
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  padding: "1.25rem",
+                  borderRadius: "var(--radius, 8px)",
+                  background: "var(--color-primary-soft, #eff6ff)",
+                  border: "2px solid var(--color-primary, #2563eb)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>🚀</span>
+                  <div>
+                    <h3 style={{ margin: 0, color: "var(--color-primary-dark, #1e40af)" }}>
+                      Inventory Dataset Ready for Scenario Simulation
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--color-text-muted, #475569)" }}>
+                      Your imported inventory ({importResult.importedCount} records) is now active and immediately connects to all five disruption stress tests.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <Link
+                    to="/operations/scenarios"
+                    className="btn btn--primary"
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                  >
+                    Simulate 5 Scenarios with This Inventory →
+                  </Link>
+                  <Link
+                    to="/operations/intelligence"
+                    className="btn btn--secondary"
+                    style={{ textDecoration: "none" }}
+                  >
+                    View Operational Intelligence
+                  </Link>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </div>
