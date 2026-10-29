@@ -678,7 +678,7 @@ export default function InventoryImportPage() {
                   <span>
                     {file
                       ? `${formatBytes(file.size)} selected`
-                      : "Maximum 5 MB, first worksheet, header row 1, up to 2,000 data rows."}
+                      : "Maximum 20 MB, first worksheet, header row 1, up to 10,000 data rows."}
                   </span>
                 </label>
               </div>

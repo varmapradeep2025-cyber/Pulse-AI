@@ -18,7 +18,7 @@ const inventoryImportService = new InventoryImportService(inventoryStore);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 20 * 1024 * 1024,
     files: 1,
     fields: 4,
   },

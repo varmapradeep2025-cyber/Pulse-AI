@@ -24,7 +24,7 @@ import {
   loadOperationalDataset,
 } from "./operationalData.js";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const PREVIEW_TTL_MS = 24 * 60 * 60 * 1000;
 
 const COLUMN_GUIDANCE: Record<string, string> = {
@@ -173,7 +173,7 @@ export class InventoryImportService {
       throw new InventoryError(
         413,
         "FILE_TOO_LARGE",
-        "Workbooks must be 5 MB or smaller.",
+        "Workbooks must be 20 MB or smaller.",
       );
     }
 

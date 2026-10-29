@@ -12,7 +12,7 @@ import type {
   InventoryRowResult,
 } from "../types/inventory.js";
 
-const MAX_DATA_ROWS = 2000;
+const MAX_DATA_ROWS = 10000;
 const XLSX_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
 
 export interface RawInventoryRow {
