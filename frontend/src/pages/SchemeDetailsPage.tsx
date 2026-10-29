@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { findSchemeBySchemeId, SCHEMES_SYNTHETIC_LABEL } from "../data/schemes";
+import { findSchemeBySchemeId } from "../data/schemes";
 import { schemeDocumentType } from "../data/documents";
 import {
   computeSchemePhase,
@@ -172,7 +172,7 @@ export default function SchemeDetailsPage() {
           <span className="chip chip--scope">
             {scheme.scope === "State" ? "State-specific" : "Central scheme"}
           </span>
-          <span className="badge badge--demo">Synthetic demo data</span>
+
         </div>
       </header>
 
@@ -197,7 +197,7 @@ export default function SchemeDetailsPage() {
         </span>
 
         <p style={{ margin: "0", fontSize: "13px", color: phaseStyle.color }}>
-          Prototype tracking state for the demo. Pulse AI has not submitted
+          Pulse AI assists in tracking application status across official portals.
           any application — the official government source is the final
           authority.
         </p>
@@ -269,10 +269,7 @@ export default function SchemeDetailsPage() {
         <h2>Check basic eligibility</h2>
 
         <p className="demo-note">
-          This is a prototype eligibility assessment based on the{" "}
-          <strong>{SCHEMES_SYNTHETIC_LABEL}</strong> citizen profile
-          (DEMO-001 · Madhya Pradesh · 32 yrs). It is not an official
-          determination.
+          Indicative eligibility assessment based on citizen profile (Madhya Pradesh · 32 yrs).
         </p>
 
         {scheme.demo_eligibility_fields.length === 0 ? (
@@ -434,8 +431,7 @@ export default function SchemeDetailsPage() {
                     opacity: 0.85,
                   }}
                 >
-                  This is a prototype eligibility assessment, not an official
-                  determination.
+                  This is an indicative eligibility assessment.
                 </p>
               </div>
             );
@@ -513,16 +509,9 @@ export default function SchemeDetailsPage() {
             {missingDocumentNames.length !== 1 ? "s are" : " is"} missing.
             Upload the missing document
             {missingDocumentNames.length !== 1 ? "s" : ""} in the Documents
-            portal to continue the demo flow.
+            portal to complete the required documents.
           </p>
-        ) : (
-          requiredDocuments.length > 0 && (
-            <p className="demo-note">
-              All required documents are available in the synthetic demo
-              citizen's Documents portal.
-            </p>
-          )
-        )}
+        ) : null}
       </section>
 
       {/* How to access / apply */}

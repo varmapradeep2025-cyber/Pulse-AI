@@ -215,7 +215,7 @@ export default function DocumentsPage() {
           status: "Processing" as DocumentStatus,
           file_type: extension,
           file_size: formatFileSize(selectedFileValue.size),
-          description: `Uploaded in the Pulse AI demo (synthetic demo record) for ${patientId} at ${getHospitalName(hospitalId)}.`,
+          description: `Uploaded for ${patientId} at ${getHospitalName(hospitalId)}.`,
         };
 
         setUploadedDocuments((current) => [
@@ -227,7 +227,7 @@ export default function DocumentsPage() {
         setUploadStage("complete");
 
         setMessage(
-          "Document uploaded successfully. It was added to your Documents list (synthetic demo record).",
+          "Document uploaded successfully. It was added to your Documents list.",
         );
 
         markDocumentUploaded(documentName.trim());
@@ -269,18 +269,12 @@ export default function DocumentsPage() {
         <div className="add-panel">
           <h2>{t("doc.addTitle")}</h2>
 
-          <p className="demo-note">
-            Demo upload: the file stays in your browser
-            (nothing is sent to a server), and you can
-            open or download it from the document card. A
-            synthetic demo record is added to your list.
-          </p>
+
 
           {schemeUpload && (
             <p className="demo-note">
               This upload was opened from the Government
-              Schemes section for the synthetic demo
-              citizen. "{schemeUpload.documentName}" is
+              Schemes section for your profile. "{schemeUpload.documentName}" is
               prefilled — upload or edit it, then return
               to the scheme.
             </p>
@@ -533,11 +527,7 @@ export default function DocumentsPage() {
             </p>
           )}
 
-          <p className="demo-note">
-            Patient records are synthetic placeholders
-            (PAT-001 …). No real patient information is
-            used or stored.
-          </p>
+
 
           <p className="demo-note">
             {t("doc.scanNote")}

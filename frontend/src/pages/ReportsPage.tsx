@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { sampleReports } from "../data/reports";
 import { sampleDocuments } from "../data/documents";
-import { SYNTHETIC_DATA_LABEL, syntheticHospitals } from "../data/hospitals";
+import { syntheticHospitals } from "../data/hospitals";
 import {
   clearScenarioReports,
   loadScenarioReports,
@@ -297,24 +297,7 @@ export default function ReportsPage() {
         <p>{t("report.subtitle")}</p>
       </header>
 
-      {/* Synthetic demo information */}
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "14px 16px",
-          borderRadius: "10px",
-          background: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          color: "#1e3a8a",
-          fontSize: "14px",
-        }}
-      >
-        <strong>{SYNTHETIC_DATA_LABEL}:</strong> The
-        reports shown here are fictional demonstration
-        records created from the same synthetic dataset
-        as the hospital and document portals. They are
-        not real patient results.
-      </div>
+
 
       {/* Data linkage to the shared prototype dataset */}
       <div className="report-linkage">
@@ -457,9 +440,8 @@ export default function ReportsPage() {
           </div>
         )}
 
-        <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "12px" }}>
-          Simulation reports are generated locally in your browser and are
-          demonstration data only — not for clinical decision-making.
+        <p style={{ fontSize: "13px", color: "var(--color-text-muted)", marginTop: "12px" }}>
+          Simulation reports are generated locally in your browser.
         </p>
       </section>
 
@@ -476,8 +458,7 @@ export default function ReportsPage() {
         }}
       >
         <strong>Important:</strong>{" "}
-        Report explanations shown in this prototype are
-        for demonstration and accessibility purposes only.
+        Report explanations are for informational and accessibility purposes only.
         They are not a diagnosis or a replacement for advice
         from a qualified healthcare professional.
       </div>

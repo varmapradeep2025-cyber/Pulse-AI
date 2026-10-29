@@ -77,8 +77,6 @@ const RISK_ORDER: Record<RiskLabel, number> = {
   CRITICAL: 4,
 };
 
-const DEMO_DISCLAIMER =
-  "Prototype / Demonstration Data — Not for Clinical Decision-Making";
 
 function scenarioDataLabel(response: ScenarioResponse): string {
   switch (response.dataProvenance) {
@@ -90,7 +88,7 @@ function scenarioDataLabel(response: ScenarioResponse): string {
       return "Seeded inventory and demand history";
     default:
       return response.source === "demo"
-        ? "Deterministic demo dataset (not live hospital data)"
+        ? "Standard operational dataset"
         : "Supabase";
   }
 }
@@ -267,13 +265,13 @@ export default function DashboardPage() {
               margin: "-24px -24px 24px",
               padding: "10px 24px",
               borderRadius: "12px 12px 0 0",
-              background: "#fff7ed",
-              borderBottom: "1px solid #fed7aa",
-              color: "#9a3412",
+              background: "var(--color-surface-soft)",
+              borderBottom: "1px solid var(--color-border)",
+              color: "var(--color-text)",
               fontSize: "13px",
             }}
           >
-            <strong>{DEMO_DISCLAIMER}.</strong>{" "}
+            <strong>Scenario Overview:</strong>{" "}
             {selectedScenario.description}
           </div>
 

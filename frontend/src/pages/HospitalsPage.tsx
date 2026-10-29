@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { syntheticHospitals, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
+import { syntheticHospitals } from "../data/hospitals";
 import { useLanguage } from "../context/LanguageContext";
 import { useSimpleMode } from "../context/SimpleModeContext";
 import HealthcareCard from "../components/HealthcareCard";
@@ -322,26 +322,7 @@ export default function HospitalsPage() {
         </p>
       </header>
 
-      {/* Prototype notice */}
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "14px 16px",
-          borderRadius: "10px",
-          background: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          color: "#1e3a8a",
-          fontSize: "14px",
-        }}
-      >
-        <strong>
-          {SYNTHETIC_DATA_LABEL}:
-        </strong>{" "}
-        Hospital records shown here are
-        fictional synthetic data created for
-        this demo. They are not real hospital
-        capacity figures or contact details.
-      </div>
+
 
       {/* Healthcare Need Selector */}
       <section

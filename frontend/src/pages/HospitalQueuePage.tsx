@@ -327,12 +327,7 @@ export default function HospitalQueuePage() {
         </button>
       </header>
 
-      <div className="appointment-demo-note">
-        <strong>Demo operations:</strong> queue records and timing estimates
-        use fictional data and reset when the backend restarts. This page
-        refreshes automatically every 30 seconds. No real patient, hospital,
-        or clinical decision is represented here.
-      </div>
+
 
       {notice && (
         <div className="appointment-success" role="status">

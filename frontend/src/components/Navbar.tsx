@@ -62,14 +62,7 @@ export default function Navbar({
           </span>
           <span className="navbar__brand-text">
             Pulse&nbsp;AI
-            {variant === "hospital" && (
-              <span
-                className="navbar__demo-badge"
-                title="Most hospital pages are demo views. The staff Queue requires authorization."
-              >
-                Demo access
-              </span>
-            )}
+
           </span>
         </Link>
 

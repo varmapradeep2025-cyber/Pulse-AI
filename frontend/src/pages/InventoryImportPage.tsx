@@ -577,7 +577,7 @@ export default function InventoryImportPage() {
                 <h3>Choose the data class</h3>
                 <p className="inventory-muted">
                   Synthetic and real records are stored with separate uniqueness
-                  rules, so a demo report can never overwrite a real report.
+                  rules, so a practice report can never overwrite an operational report.
                 </p>
                 <div className="inventory-radio-group">
                   <label>
@@ -593,8 +593,8 @@ export default function InventoryImportPage() {
                       value="synthetic"
                     />
                     <span>
-                      <strong>Synthetic demo data</strong>
-                      <small>Clearly labelled practice/test data.</small>
+                      <strong>Practice dataset</strong>
+                      <small>Test and simulated data.</small>
                     </span>
                   </label>
                   <label>

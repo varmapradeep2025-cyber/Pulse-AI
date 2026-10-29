@@ -16,16 +16,7 @@ export default function PortalLayout({
         {t("layout.skip")}
       </a>
       <Navbar variant={portal} />
-      {portal === "hospital" && (
-        <div className="portal-access-note">
-          <div className="container">
-            <strong>Demo access:</strong> appointment and queue data are demo
-            views and require configured staff accounts. Inventory imports are
-            stored separately as synthetic or real data; upload real operational
-            reports only when authorized.
-          </div>
-        </div>
-      )}
+
       <main id="main-content" className="main">
         <Outlet />
       </main>

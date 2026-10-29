@@ -15,7 +15,6 @@ export default function SchemeCard({ scheme }: SchemeCardProps) {
     <article className="scheme-card">
       <div className="scheme-card__head">
         <h3 className="scheme-card__name">{scheme.name}</h3>
-        <span className="badge badge--demo">{t("scheme.demo")}</span>
       </div>
 
       <div className="scheme-card__chips">
@@ -77,7 +76,7 @@ export default function SchemeCard({ scheme }: SchemeCardProps) {
               </li>
             ))}
           </ol>
-          <p className="demo-note">{t("scheme.demoNote")}</p>
+    
         </div>
       )}
     </article>

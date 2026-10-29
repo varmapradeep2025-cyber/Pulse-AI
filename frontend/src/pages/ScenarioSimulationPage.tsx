@@ -222,7 +222,7 @@ export default function ScenarioSimulationPage() {
 
   const sourceLabel =
     result?.source === "demo"
-      ? "Demo data (synthetic)"
+      ? "Simulated dataset"
       : result?.source === "supabase"
         ? "Database data (Supabase)"
         : "Data source unavailable";
@@ -305,7 +305,7 @@ export default function ScenarioSimulationPage() {
         <p className="sim-header__subtitle">
           Simulate supply-chain disruptions and compare baseline, disruption, and intervention outcomes.
         </p>
-        <span className="sim-disclaimer">⚠ Prototype — results use demonstration or synthetic data unless real inventory has been imported</span>
+        
       </header>
 
       {/* Operational Dataset Provenance Banner */}
@@ -331,10 +331,10 @@ export default function ScenarioSimulationPage() {
               {result?.dataProvenance === "imported-real"
                 ? "Active Hospital Excel Ingestion (Real Data)"
                 : result?.dataProvenance === "imported-synthetic"
-                  ? "Active Hospital Excel Ingestion (Synthetic Demo Data)"
+                  ? "Active Hospital Excel Ingestion"
                   : result?.dataProvenance === "legacy"
                     ? "Supabase Database Inventory"
-                    : "Standard Catalog Inventory (Demo)"}
+                    : "Standard Catalog Inventory"}
             </span>
           </div>
         </div>

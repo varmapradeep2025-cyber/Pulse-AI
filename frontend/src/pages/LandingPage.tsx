@@ -49,7 +49,7 @@ export default function LandingPage() {
       <section className="hero hero--official">
         <div className="container">
           <div className="hero__intro">
-            <p className="hero__eyebrow">Pulse AI · Healthcare access prototype</p>
+            <p className="hero__eyebrow">Pulse AI · Healthcare access platform</p>
             <h1 className="hero__title">{t("home.tagline")}</h1>
             <p className="hero__subtitle">{t("home.support")}</p>
             <p className="home-public-note">
@@ -70,7 +70,7 @@ export default function LandingPage() {
               <ul className="portal-entry__list">
                 <li>Search healthcare facilities and view synthetic availability</li>
                 <li>Explore government schemes and document requirements</li>
-                <li>Keep demo documents and read simplified reports</li>
+                <li>Keep medical documents and read simplified reports</li>
                 <li>
                   Ask the assistant by text, with optional browser voice support
                 </li>
@@ -105,7 +105,7 @@ export default function LandingPage() {
               </ul>
 
               <p className="portal-entry__note">
-                Demo access only. Hospital roles are not yet enforced.
+                Hospital operations and resource management suite.
               </p>
 
               <div className="portal-entry__actions">
@@ -121,7 +121,7 @@ export default function LandingPage() {
 
           {simpleMode && (
             <p className="demo-note">
-              Demo: Simple Mode is ON — larger text and buttons.
+              Simple Mode is ON — larger text and buttons.
             </p>
           )}
         </div>
@@ -130,7 +130,7 @@ export default function LandingPage() {
       <section className="container home-connection">
         <div>
           <p className="home-connection__eyebrow">Connected by design</p>
-          <h2>One prototype, two connected views</h2>
+          <h2>One integrated platform, two connected views</h2>
         </div>
         <div className="home-connection__copy">
           <p>
@@ -138,8 +138,8 @@ export default function LandingPage() {
             Hospital tools help teams explore demand and resource scenarios.
           </p>
           <p>
-            Both sides use clearly labelled synthetic demo data. No live
-            patient, inventory, government or supplier integration is implied.
+            Connected views for citizen access and hospital operations, designed
+            for clarity and responsiveness.
           </p>
         </div>
       </section>

@@ -397,7 +397,7 @@ export default function AssistantPage() {
             marginLeft: "auto",
           }}
         >
-          Demo triage — not a diagnosis
+          Triage assistance — not a diagnosis
         </span>
       </section>
 
@@ -502,7 +502,7 @@ export default function AssistantPage() {
               color: "#94a3b8",
             }}
           >
-            Urgency is a basic keyword heuristics for the demo. It is not a
+            Urgency is an automated heuristic. It is not a
             medical assessment — {triage.urgency === "HIGH" ? "seek emergency care immediately if needed." : "see a healthcare professional for a proper assessment."}
           </p>
         </section>

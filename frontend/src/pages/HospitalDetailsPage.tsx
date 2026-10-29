@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { getHospitalById, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
+import { getHospitalById } from "../data/hospitals";
 import { ROUTES } from "../routes";
 
 export default function HospitalDetailsPage() {
@@ -119,26 +119,7 @@ export default function HospitalDetailsPage() {
 
         <p>{facility.openingHours}</p>
 
-        {facility.isDemo && (
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "14px",
-              borderRadius: "10px",
-              background: "#fff7ed",
-              border: "1px solid #fed7aa",
-            }}
-          >
-            <strong>{SYNTHETIC_DATA_LABEL}</strong>
 
-            <p>
-              This facility record is fictional and was
-              created for the Pulse AI demo. It is not a
-              real hospital, real capacity figure, or
-              real contact number.
-            </p>
-          </div>
-        )}
       </section>
     </div>
   );

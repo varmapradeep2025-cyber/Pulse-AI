@@ -98,7 +98,7 @@ export default function DocumentCard({ doc }: DocumentCardProps) {
               <strong>Status:</strong> {doc.status}
             </p>
             {doc.description && <p>{doc.description}</p>}
-            <p className="demo-note">{t("doc.demoNote")}</p>
+  
             <p>{t("doc.scanNote")}</p>
           </div>
         )}

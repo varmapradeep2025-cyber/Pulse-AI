@@ -24,7 +24,7 @@ export default function HealthcareCard({ facility }: HealthcareCardProps) {
     <article className="facility-card">
       <div className="facility-card__head">
         <h3 className="facility-card__name">{facility.name}</h3>
-        {facility.isDemo && <span className="badge badge--demo">{t("hospital.demo")}</span>}
+
       </div>
       <p className="facility-card__location">📍 {facility.location}</p>
 
@@ -72,7 +72,7 @@ export default function HealthcareCard({ facility }: HealthcareCardProps) {
           <p>
             <strong>Departments:</strong> {facility.departments.join(", ")}
           </p>
-          <p className="demo-note">{t("hospital.demoNote")}</p>
+    
         </div>
       )}
     </article>

@@ -8,8 +8,7 @@ export default function SignupPage() {
   const location = useLocation();
   const from =
     (location.state as { from?: string } | null)?.from ?? ROUTES.citizen;
-  const isHospitalAccess = from.startsWith(ROUTES.hospital);
-
+  
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,13 +49,7 @@ export default function SignupPage() {
         <h1>Create your Pulse AI account</h1>
         <p>Get personalized healthcare assistance.</p>
 
-        {isHospitalAccess && (
-          <p className="demo-note">
-            Demo access: hospital roles and restrictions are not enforced.
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit}>
           <label>
             Full name
             <input

@@ -36,7 +36,7 @@ export default function ReportCard({ report }: ReportCardProps) {
     <article className="report-card">
       <div className="report-card__head">
         <h3 className="report-card__title">{report.title}</h3>
-        {report.isDemo && <span className="badge badge--demo">{t("report.demo")}</span>}
+
       </div>
 
       <p className="report-card__meta">
@@ -92,7 +92,7 @@ export default function ReportCard({ report }: ReportCardProps) {
             <strong>Patient ID:</strong> {report.patient_id} (synthetic) ·{" "}
             <strong>Issued by:</strong> {report.issued_by}
           </p>
-          <p className="demo-note">{t("report.demoNoteView")}</p>
+
         </div>
       )}
 
@@ -100,7 +100,7 @@ export default function ReportCard({ report }: ReportCardProps) {
         <div className="report-card__panel report-card__panel--explain">
           <h4>{t("report.explanation")}</h4>
           <p>{report.simpleSummary}</p>
-          <p className="demo-note">{t("report.demoNoteExplain")}</p>
+
         </div>
       )}
     </article>

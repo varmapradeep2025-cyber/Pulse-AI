@@ -2,8 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   SCHEME_CATEGORIES,
-  SCHEMES_SYNTHETIC_LABEL,
-  sampleSchemes,
+    sampleSchemes,
   SCHEME_SCOPES,
 } from "../data/schemes";
 import { demoCitizenProfile } from "../data/demoCitizen";
@@ -30,7 +29,7 @@ function MatchReasons({ match }: { match: SchemeMatch }) {
       ? "Potentially relevant — basic criteria matched on the provided info."
       : outcome === "more-info"
         ? "More information required to complete the basic check."
-        : "Basic criteria not met based on the demo information.";
+        : "Basic criteria not met based on profile information.";
 
   return (
     <div className="scheme-match">
@@ -62,7 +61,7 @@ function MatchReasons({ match }: { match: SchemeMatch }) {
         {reasons.notMet.map((reason) => (
           <li key={`notmet-${reason}`}>
             <span className="scheme-match__icon scheme-match__icon--bad">✕</span>{" "}
-            {reason} — criterion not met based on demo information
+            {reason} — criterion not met based on profile information
           </li>
         ))}
 
@@ -135,25 +134,7 @@ export default function SchemesPage() {
         <p>{t("scheme.subtitle")}</p>
       </header>
 
-      {/* Synthetic demo notice */}
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "14px 16px",
-          borderRadius: "10px",
-          background: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          color: "#1e3a8a",
-          fontSize: "14px",
-        }}
-      >
-        <strong>{SCHEMES_SYNTHETIC_LABEL}:</strong>{" "}
-        The schemes shown here are real, publicly-documented
-        government schemes presented from a synthetic demo
-        dataset. Pulse AI does not approve, sanction, or
-        guarantee any government benefit — the official
-        government source is the final authority.
-      </div>
+
 
       {/* Find schemes for me */}
       <section
@@ -187,10 +168,9 @@ export default function SchemesPage() {
             >
               Compares the{" "}
               <strong>{demoCitizenProfile.label}</strong>{" "}
-              profile (DEMO-001 · Madhya Pradesh · 32 yrs ·
+              profile (Madhya Pradesh · 32 yrs ·
               Very low income · General category) with the
-              scheme dataset. This is a prototype match —
-              it is not an official eligibility check.
+              scheme dataset for indicative eligibility guidance.
             </p>
           </div>
 
@@ -227,8 +207,7 @@ export default function SchemesPage() {
                 fontWeight: 600,
               }}
             >
-              Potentially relevant schemes (based on the demo
-              profile):
+              Potentially relevant schemes (based on your profile):
             </p>
 
             {matches.map((match) => (

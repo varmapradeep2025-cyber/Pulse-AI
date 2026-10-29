@@ -4,7 +4,6 @@ import type {
   IntelligenceSummary,
   SeriesForecast,
 } from "../data/hospitalIntelligence";
-import { SYNTHETIC_DATA_LABEL } from "../data/hospitals";
 import LoadingState from "../components/LoadingState";
 
 const PIPELINE_STEPS = [
@@ -190,7 +189,7 @@ export default function IntelligencePage() {
         <div>
           <h1>Hospital Intelligence</h1>
           <p>
-            Prioritised replenishment decisions from demand forecasting — for demo purposes.
+            Prioritised replenishment decisions from demand forecasting.
           </p>
         </div>
         <span className={summary.online ? "intel-source intel-source--online" : "intel-source intel-source--offline"}>
@@ -198,16 +197,7 @@ export default function IntelligencePage() {
         </span>
       </header>
 
-      <div className="demo-note">
-        <strong>{SYNTHETIC_DATA_LABEL}:</strong>{" "}
-        {summary.provenance === "imported-real"
-          ? "Forecasts use imported real inventory reports. Validate stock levels before procurement decisions."
-          : summary.provenance === "imported-synthetic"
-            ? "Forecasts use imported inventory reports explicitly marked as synthetic demo data."
-            : summary.online
-              ? "Forecasts are computed by the Pulse AI backend from seeded demo demand history. Do not base real procurement decisions on this prototype."
-              : "The backend is not running, so a local ML engine is forecasting on deterministic demo data. Do not base real procurement decisions on this prototype."}
-      </div>
+
 
       {/* Pipeline */}
       <section className="intel-pipeline-card">

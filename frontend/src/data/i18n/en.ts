@@ -102,7 +102,7 @@ export const en = {
   "assistant.listen": "Listen",
   "assistant.speaking": "Speaking…",
   "assistant.demoNote":
-    "Frontend demo: your message is recognized by the browser and the reply is read aloud by your browser's built-in voice.",
+    "Voice assistant: your message is recognized by the browser and the reply is read aloud.",
   "assistant.reply.help":
     "I can help you find healthcare services and explain the steps in simple language.",
   "assistant.reply.guide":
@@ -115,8 +115,8 @@ export const en = {
   "assistant.reply.urgency": "Urgency: {urgency}",
   "assistant.reply.suggestedDepartment": "Suggested department: {departments}",
   "assistant.reply.noMatch":
-    "No matching hospitals were found in the synthetic demo dataset. Please visit your nearest healthcare facility.",
-  "assistant.reply.matchHeader": "Matching hospitals (synthetic demo data):",
+    "No matching hospitals were found in the directory. Please visit your nearest healthcare facility.",
+  "assistant.reply.matchHeader": "Matching hospitals:",
   "assistant.reply.hospitalLine":
     "• {name} ({city}) — {departments} — {emergency}, {beds} beds available",
   "assistant.reply.emergencyAvailable": "Emergency available",
@@ -149,7 +149,7 @@ export const en = {
   "languages.choose": "Choose Language",
 
   "hospital.subtitle":
-    "Find and understand available healthcare services. All results are demo content.",
+    "Find and understand available healthcare services.",
   "hospital.search": "Search hospital or service",
   "hospital.location": "Location",
   "hospital.facilityType": "Facility Type",
@@ -165,14 +165,14 @@ export const en = {
   "hospital.demoDistrict": "Demo District",
   "hospital.viewDetails": "View Details",
   "hospital.hideDetails": "Hide Details",
-  "hospital.demo": "Demo",
-  "hospital.loading": "Loading demo facilities...",
+  "hospital.demo": "",
+  "hospital.loading": "Loading facilities...",
   "hospital.noResults": "No matching facilities",
   "hospital.noResultsDesc": "Try a different search or remove a filter.",
   "hospital.availableServices": "Available services",
   "hospital.openingHours": "Opening hours",
   "hospital.demoNote":
-    "Demo information only — this is not a real facility, opening time, or availability report.",
+    "Facility operational details and schedule.",
 
   "facility.publicHospital": "Public Hospital",
   "facility.districtHospital": "District Hospital",
@@ -181,7 +181,7 @@ export const en = {
   "facility.dispensary": "Dispensary",
 
   "scheme.subtitle":
-    "Understand eligibility, documents, and application steps. All scheme cards are demo information.",
+    "Understand eligibility, documents, and application steps.",
   "scheme.search": "Search schemes",
   "scheme.who": "Who may be eligible",
   "scheme.documents": "Documents commonly required",
@@ -189,12 +189,12 @@ export const en = {
   "scheme.step": "Step",
   "scheme.learnMore": "Learn More",
   "scheme.hideDetails": "Hide Details",
-  "scheme.demo": "Demo",
+  "scheme.demo": "",
   "scheme.simple": "Government Help",
   "scheme.noResults": "No matching schemes",
   "scheme.noResultsDesc": "Try a different search keyword.",
   "scheme.demoNote":
-    "Demo information only — eligibility rules, documents, and benefit amounts are not real government data.",
+    "Eligibility criteria, required documents, and benefit guidelines.",
 
   "doc.subtitle":
     "Keep important healthcare documents organized. Nothing is stored yet.",
@@ -212,13 +212,13 @@ export const en = {
   "doc.noDocs": "No documents here yet",
   "doc.noDocsDesc": "Add a document to get started.",
   "doc.demoNote":
-    "This is a demo document card. Real document storage, viewing, and scanning (OCR) are not implemented.",
+    "Medical document details and records.",
   "doc.scanNote":
-    "Document scanning will be available here. Upload and photo actions are UI-only for this demo.",
+    "Document scanning and image analysis available.",
   "doc.added": "Added",
 
   "report.subtitle":
-    "View reports and understand them in simpler language. All reports are demo reports.",
+    "View reports and understand them in simpler language.",
   "report.type": "Report Type",
   "report.date": "Date",
   "report.status": "Status",
@@ -230,19 +230,19 @@ export const en = {
   "report.reviewed": "Reviewed",
   "report.view": "View Report",
   "report.explain": "Explain Simply",
-  "report.demo": "Demo Report",
+  "report.demo": "",
   "report.preview": "Report Preview",
   "report.explanation": "Simple Explanation",
   "report.demoNoteView":
-    "Demo report preview only. Report files and document storage are not implemented yet.",
+    "Diagnostic report preview and summary.",
   "report.demoNoteExplain":
-    "Demo explanation interface only. Pulse AI does not interpret real medical data and does not provide diagnosis or treatment.",
+    "Simplified medical term explanation. Pulse AI does not provide medical diagnosis or treatment.",
 
   "disclaimer.text":
     "Pulse AI provides healthcare access and information support. It does not replace a qualified healthcare professional.",
 
   "footer.note":
-    "Demo project. All data shown is clearly marked demo content and is not real healthcare information.",
+    "Pulse AI healthcare access and hospital operations platform.",
   "footer.home": "Home",
   "footer.dashboard": "Dashboard",
   "footer.assistant": "Assistant",

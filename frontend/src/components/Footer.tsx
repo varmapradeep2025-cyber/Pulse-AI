@@ -44,7 +44,7 @@ export default function Footer({
         </Link>
 
         <p className="footer__identity">
-          An independent healthcare-access prototype. Not an official
+          An independent healthcare-access platform. Not an official
           government or hospital service.
         </p>
 

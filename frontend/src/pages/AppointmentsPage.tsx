@@ -119,7 +119,7 @@ function SlotPicker({
   emptyMessage: string;
 }) {
   if (loading) {
-    return <p className="appointment-muted">Loading demo availability...</p>;
+    return <p className="appointment-muted">Loading availability...</p>;
   }
 
   if (error) {
@@ -485,7 +485,7 @@ function AppointmentDetail({
             selectedSlotId={selectedSlotId}
             onSelectDate={setSelectedDate}
             onSelectSlot={setSelectedSlotId}
-            emptyMessage="No demo slots are currently published for this doctor. Keep the existing appointment, contact hospital registration staff, or use walk-in registration."
+            emptyMessage="No appointment slots are currently published for this doctor. Keep the existing appointment, contact hospital registration staff, or use walk-in registration."
           />
           <button
             type="submit"
@@ -548,7 +548,7 @@ function AppointmentDetail({
         </ol>
       </div>
 
-      <p className="appointment-demo-caption">{view.demoLabel}</p>
+
     </section>
   );
 }
@@ -870,11 +870,7 @@ export default function AppointmentsPage() {
         </div>
       </header>
 
-      <div className="appointment-demo-note">
-        <strong>Demo scheduling:</strong> hospitals, doctors, slots, and queue
-        records are fictional and reset when the backend restarts. No real
-        appointment, doctor availability, or notification is created.
-      </div>
+
 
       {notice && (
         <div className="appointment-success" role="status">
@@ -907,7 +903,7 @@ export default function AppointmentsPage() {
             </div>
 
             {loading ? (
-              <p className="appointment-muted">Loading demo catalog...</p>
+              <p className="appointment-muted">Loading catalog...</p>
             ) : (
               <form onSubmit={handleBook} className="appointment-form">
                 <div className="appointment-fields">
@@ -969,7 +965,7 @@ export default function AppointmentsPage() {
 
                 {selectedDoctor?.approvalRequired && (
                   <p className="appointment-note">
-                    This doctor's demo slot requires staff confirmation. The
+                    This doctor's slot requires staff confirmation. The
                     request will show as awaiting confirmation until hospital
                     staff approve it.
                   </p>
@@ -983,7 +979,7 @@ export default function AppointmentsPage() {
                   selectedSlotId={selectedSlotId}
                   onSelectDate={setSelectedDate}
                   onSelectSlot={setSelectedSlotId}
-                  emptyMessage="No demo appointment slots are currently published for this doctor. Do not assume the hospital is available. Contact registration staff or use walk-in registration."
+                  emptyMessage="No appointment slots are currently published for this doctor. Contact registration staff or use walk-in registration."
                 />
 
                 {availability && !hasAnySlots && (

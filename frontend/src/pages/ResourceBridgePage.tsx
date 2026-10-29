@@ -338,7 +338,7 @@ function ResourceRow({
         className="btn btn--secondary btn--small"
         onClick={onRequest}
       >
-        Start demo request
+        Start request
       </button>
     </div>
   );
@@ -636,7 +636,7 @@ function RequestCard({
             </div>
 
             <div>
-              <h4>Demo status control</h4>
+              <h4>Status control</h4>
               <p className="rb-fineprint">
                 These controls only update this browser&apos;s demo record. No
                 organisation is contacted and no transfer or delivery is
@@ -669,7 +669,7 @@ function RequestCard({
                     className="btn btn--ghost btn--small"
                     onClick={() => onTransition(request.id, chosenStatus)}
                   >
-                    Record demo status
+                    Update status
                   </button>
                 </div>
               )}
@@ -757,7 +757,7 @@ function RequestForm({
         <div className="rb-form__head">
           <div>
             <span className="badge badge--demo">{RESOURCE_BRIDGE_DEMO_LABEL}</span>
-            <h2 id="rb-request-form-title">Create a demo coordination request</h2>
+            <h2 id="rb-request-form-title">Create coordination request</h2>
             <p>{state.context}</p>
           </div>
           <button
@@ -952,7 +952,7 @@ function RequestForm({
             Cancel
           </button>
           <button type="submit" className="btn btn--primary">
-            Save demo request
+            Save request
           </button>
         </div>
       </form>
@@ -1152,7 +1152,7 @@ export default function ResourceBridgePage() {
             </p>
           </div>
           <div className="rb-snapshot">
-            <span>Demo snapshot</span>
+            <span>Current snapshot</span>
             <strong>{getDemoSnapshotLabel()}</strong>
             <small>
               No live hospital, supplier, blood-bank, or government feed is
@@ -1236,7 +1236,7 @@ export default function ResourceBridgePage() {
                 detail="fictional component reports only"
               />
               <Metric
-                label="Demo requests"
+                label="Active requests"
                 value={requestState.requests.length}
                 detail={`${requestCounts.open} open · ${requestCounts.urgent} urgent`}
               />
@@ -1327,7 +1327,7 @@ export default function ResourceBridgePage() {
                     )
                   }
                 >
-                  Create demo request
+                  Create request
                 </button>
               </div>
             </section>
@@ -1914,7 +1914,7 @@ export default function ResourceBridgePage() {
                 className="btn btn--ghost btn--tiny"
                 onClick={handleResetRequests}
               >
-                Reset demo requests
+                Reset requests
               </button>
             </div>
           )}
@@ -2040,7 +2040,7 @@ export default function ResourceBridgePage() {
                 className="btn btn--ghost btn--tiny"
                 onClick={handleResetRequests}
               >
-                Reset demo data
+                Reset data
               </button>
             </div>
           </div>
