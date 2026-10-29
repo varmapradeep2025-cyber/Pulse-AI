@@ -520,36 +520,36 @@ export class NotificationService {
   }
 }
 
-/* -- Auto-wire real providers when API keys are present -------------
-   Falls back to Mock providers when keys are absent, so the app
-   starts cleanly in dev without any configuration.                  */
-function createNotificationService(): NotificationService {
-  const { env } = await import("../config/env.js").catch(() => ({ env: {} as Record<string,string> }));
-  return new NotificationService({});
-}
 
-import { env } from "../config/env.js";
+
 
 function buildNotificationService(): NotificationService {
-  const emailProvider: EmailProvider = env.RESEND_API_KEY
-    ? new ResendEmailProvider(env.RESEND_API_KEY, env.RESEND_FROM_EMAIL)
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendFrom = process.env.RESEND_FROM_EMAIL;
+  const fast2smsApiKey = process.env.FAST2SMS_API_KEY;
+  const appUrl = process.env.APP_URL;
+
+  const emailProvider: EmailProvider = resendApiKey
+    ? new ResendEmailProvider(resendApiKey, resendFrom)
     : new MockEmailProvider();
 
-  const smsProvider: SmsProvider = env.FAST2SMS_API_KEY
-    ? new Fast2SMSProvider(env.FAST2SMS_API_KEY)
+  const smsProvider: SmsProvider = fast2smsApiKey
+    ? new Fast2SMSProvider(fast2smsApiKey)
     : new MockSmsProvider();
 
   const activeProviders: string[] = [];
-  if (env.RESEND_API_KEY) activeProviders.push("resend-email");
-  if (env.FAST2SMS_API_KEY) activeProviders.push("fast2sms-sms");
+  if (resendApiKey) activeProviders.push("resend-email");
+  if (fast2smsApiKey) activeProviders.push("fast2sms-sms");
   if (activeProviders.length === 0) activeProviders.push("mock (no keys set)");
 
-  console.log(`[notifications] Active providers: ${activeProviders.join(", ")}`);
+  if (process.env.NODE_ENV !== "test") {
+    console.log(`[notifications] Active providers: ${activeProviders.join(", ")}`);
+  }
 
   return new NotificationService({
     emailProvider,
     smsProvider,
-    appUrl: env.APP_URL,
+    appUrl,
   });
 }
 
