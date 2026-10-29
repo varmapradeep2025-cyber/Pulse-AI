@@ -18,6 +18,11 @@ import {
 } from "./inventoryWorkbook.js";
 import type { InventoryStore } from "./inventoryStore.js";
 import { hasInventoryHospitalScope } from "./inventoryAccess.js";
+import { summarizeOperationalDataset } from "./inventoryDatasetSummary.js";
+import {
+  analyticsScope,
+  loadOperationalDataset,
+} from "./operationalData.js";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PREVIEW_TTL_MS = 24 * 60 * 60 * 1000;
@@ -269,6 +274,7 @@ export class InventoryImportService {
       fileName: request.fileName,
       fileHash,
       datasetKind: request.datasetKind,
+      sheetName: parsed.sheetName,
       correctionMode: request.correctionMode,
       status: acceptedCount > 0 ? "previewed" : "rejected",
       reportingPeriodStart: period.start,
@@ -378,10 +384,23 @@ export class InventoryImportService {
       );
     }
 
-    return this.store.getLedgerSummary({
+    const ledger = await this.store.getLedgerSummary({
       allHospitals: user.allHospitals,
       hospitalIds: user.hospitalIds,
     });
+
+    if (!ledger.storageReady) {
+      return ledger;
+    }
+
+    const dataset = await loadOperationalDataset(
+      analyticsScope(user.allHospitals, user.hospitalIds),
+    );
+
+    return {
+      ...ledger,
+      active: summarizeOperationalDataset(dataset),
+    };
   }
 
   async template(

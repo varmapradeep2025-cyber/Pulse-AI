@@ -178,6 +178,11 @@ export default function ScenarioSimulationPage() {
       distinctProducts: productsSet.size,
       belowSafety,
       aggregateShortage: hasUnits ? shortageAgg : null,
+      baselineShortage:
+        result.scenario?.baseline?.projected_shortage_total ?? null,
+      additionalShortage:
+        result.scenario?.impact_vs_baseline?.additional_projected_shortage ??
+        null,
       redistributionQty,
       disruptionDuration: result.scenario?.scenario?.duration_days ?? null,
     };
@@ -265,7 +270,7 @@ export default function ScenarioSimulationPage() {
     // Aggregate across all results for same scope where possible
     const items = result.results.slice(0, 10); // limit for readability
     return items.map((r: any) => {
-      const baseline = r.starting_stock;
+      const baseline = r.baseline?.projected_remaining_stock ?? r.starting_stock;
       const afterDisruption = (r.projected_remaining_stock_before_redistribution !== undefined && r.projected_remaining_stock_before_redistribution !== null)
         ? r.projected_remaining_stock_before_redistribution
         : r.projected_remaining_stock;
@@ -452,6 +457,14 @@ export default function ScenarioSimulationPage() {
               <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Aggregate projected shortage</div>
                 <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.aggregateShortage === null ? "Unavailable" : kpis.aggregateShortage}</div>
+              </div>
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Baseline projected shortage</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.baselineShortage === null ? "Unavailable" : kpis.baselineShortage}</div>
+              </div>
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Additional shortage vs baseline</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.additionalShortage === null ? "Unavailable" : kpis.additionalShortage}</div>
               </div>
               <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Proposed redistribution qty</div>
@@ -658,7 +671,7 @@ export default function ScenarioSimulationPage() {
 
             <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
             <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 5: Intervention Impact — Before-and-After Chart (grouped bars)</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Baseline inventory vs inventory after disruption vs projected inventory after simulated redistribution</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Same-window no-disruption baseline vs disrupted projection vs projected inventory after simulated redistribution</div>
             <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Redistribution is labeled as simulated, not a real inventory movement. Values use actual simulation results from the same scope.</div>
             {interventionData.length > 0 ? (
               <svg width="100%" height="220" viewBox="0 0 340 220">
@@ -688,7 +701,7 @@ export default function ScenarioSimulationPage() {
               <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Insufficient data for before/after comparison.</div>
             )}
             <div style={{ display: "flex", gap: "0.8rem", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-              <span>■ Baseline inventory</span>
+              <span>■ Baseline projected stock</span>
               <span>■ After disruption</span>
               <span>■ Projected after simulated redistribution</span>
             </div>

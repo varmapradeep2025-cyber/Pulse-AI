@@ -1,9 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
-import { useSimpleMode } from "../context/SimpleModeContext";
 import LanguageSelector from "./LanguageSelector";
-import SimpleModeToggle from "./SimpleModeToggle";
 import {
   CITIZEN_NAV_ITEMS,
   HOSPITAL_NAV_ITEMS,
@@ -36,7 +34,6 @@ export default function Navbar({
   variant?: NavbarVariant;
 }) {
   const { t } = useLanguage();
-  const { simpleMode } = useSimpleMode();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -62,9 +59,6 @@ export default function Navbar({
           </span>
           <span className="navbar__brand-text">
             Pulse&nbsp;AI
-            {simpleMode && (
-              <span className="navbar__badge">{t("simpleMode.badge")}</span>
-            )}
             {variant === "hospital" && (
               <span
                 className="navbar__demo-badge"
@@ -108,7 +102,6 @@ export default function Navbar({
               {portalSwitch.label}
             </Link>
           )}
-          <SimpleModeToggle />
           <LanguageSelector compact />
           <button
             type="button"

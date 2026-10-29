@@ -107,12 +107,63 @@ export interface InventoryLatestReport {
   rowCount: number;
 }
 
+export type InventoryDatasetSource =
+  | "imported-real"
+  | "imported-synthetic"
+  | "legacy"
+  | "synthetic-demo";
+export type InventoryDatasetKindLabel =
+  | "real"
+  | "synthetic"
+  | "legacy"
+  | "demo";
+export type InventoryItemStockStatus =
+  | "healthy"
+  | "low"
+  | "stockout"
+  | "unknown";
+
+export interface InventoryDatasetItemSummary {
+  hospitalId: number;
+  hospitalName: string;
+  medicineId: number;
+  medicineName: string;
+  unit: string;
+  reportDate: string | null;
+  closingStock: number | null;
+  safetyStock: number | null;
+  minimumStockLevel: number | null;
+  status: InventoryItemStockStatus;
+}
+
+export interface InventoryDatasetSummary {
+  id: string;
+  source: InventoryDatasetSource;
+  kind: InventoryDatasetKindLabel;
+  snapshotDate: string | null;
+  importedAt: string | null;
+  loadedAt: string;
+  rowCount: number;
+  demandRowCount: number;
+  hospitalCount: number;
+  medicineCount: number;
+  knownStockRows: number;
+  unknownStockRows: number;
+  totalStock: number;
+  lowStockRows: number;
+  stockoutRows: number;
+  warnings: string[];
+  items: InventoryDatasetItemSummary[];
+}
+
 export interface InventoryLedgerSummary {
+  storageReady: boolean;
   latestReal: InventoryLatestReport | null;
   latestSynthetic: InventoryLatestReport | null;
   realRowCount: number;
   syntheticRowCount: number;
   recentBatches: InventoryBatchSummary[];
+  active: InventoryDatasetSummary | null;
 }
 
 interface ApiPayload {

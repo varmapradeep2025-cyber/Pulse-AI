@@ -1,0 +1,305 @@
+[1mdiff --git a/backend/src/services/scenarioService.ts b/backend/src/services/scenarioService.ts[m
+[1mindex 37ba31a..bd8ab79 100644[m
+[1m--- a/backend/src/services/scenarioService.ts[m
+[1m+++ b/backend/src/services/scenarioService.ts[m
+[36m@@ -103,6 +103,7 @@[m [mexport type SimulationResult = {[m
+   /* Impact. */[m
+   projected_demand: number;[m
+   projected_remaining_stock: number;[m
+[32m+[m[32m  projected_remaining_stock_before_redistribution?: number;[m
+   days_of_stock_remaining: number;[m
+   safety_stock_breach: boolean;[m
+   estimated_shortage_quantity: number;[m
+[36m@@ -833,6 +834,7 @@[m [mexport async function simulateScenario([m
+ [m
+       projected_demand: projectedDemand,[m
+       projected_remaining_stock: projectedRemaining,[m
+[32m+[m[32m      projected_remaining_stock_before_redistribution: projectedRemaining,[m
+       days_of_stock_remaining: daysOfStock,[m
+       safety_stock_breach: safetyBreach,[m
+       estimated_shortage_quantity: shortageUnits,[m
+[36m@@ -850,6 +852,11 @@[m [mexport async function simulateScenario([m
+   });[m
+ [m
+   // 11. Redistribution pass — one facility's surplus vs another's projected shortage[m
+[32m+[m[32m  for (const result of results) {[m
+[32m+[m[32m    if (result.projected_remaining_stock_before_redistribution === undefined) {[m
+[32m+[m[32m      result.projected_remaining_stock_before_redistribution = result.projected_remaining_stock;[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+   applyRedistribution(results);[m
+ [m
+   // 12. Scenario-level summary[m
+[1mdiff --git a/frontend/src/api/scenarios.ts b/frontend/src/api/scenarios.ts[m
+[1mindex 6e44613..1a5aa61 100644[m
+[1m--- a/frontend/src/api/scenarios.ts[m
+[1m+++ b/frontend/src/api/scenarios.ts[m
+[36m@@ -99,6 +99,7 @@[m [mexport type SimulationResult = {[m
+   /* Impact. */[m
+   projected_demand: number;[m
+   projected_remaining_stock: number;[m
+[32m+[m[32m  projected_remaining_stock_before_redistribution?: number;[m
+   days_of_stock_remaining: number;[m
+   safety_stock_breach: boolean;[m
+   estimated_shortage_quantity: number;[m
+[1mdiff --git a/frontend/src/pages/ScenarioSimulationPage.tsx b/frontend/src/pages/ScenarioSimulationPage.tsx[m
+[1mindex 15134cf..5dd0efe 100644[m
+[1m--- a/frontend/src/pages/ScenarioSimulationPage.tsx[m
+[1m+++ b/frontend/src/pages/ScenarioSimulationPage.tsx[m
+[36m@@ -99,6 +99,14 @@[m [mtype SortKey =[m
+   | "stock_out_day"[m
+   | "risk_label";[m
+ [m
+[32m+[m[32mfunction normalizeRiskCategory(label?: string | null): "Low" | "Caution" | "High" | "Unknown" {[m
+[32m+[m[32m  const l = (label || "").toString().toUpperCase();[m
+[32m+[m[32m  if (l === "GREEN" || l === "LOW") return "Low";[m
+[32m+[m[32m  if (l === "YELLOW" || l === "MEDIUM") return "Caution";[m
+[32m+[m[32m  if (l === "RED" || l === "HIGH" || l === "CRITICAL") return "High";[m
+[32m+[m[32m  return "Unknown";[m
+[32m+[m[32m}[m
+[32m+[m
+ export default function ScenarioSimulationPage() {[m
+   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null);[m
+   const [loading, setLoading] = useState(false);[m
+[36m@@ -108,9 +116,6 @@[m [mexport default function ScenarioSimulationPage() {[m
+   const [sortKey, setSortKey] = useState<SortKey>("risk_label");[m
+   const [sortAsc, setSortAsc] = useState(false);[m
+ [m
+[31m-  const selectedScenario = SCENARIOS.find((s) => s.id === selectedScenarioId) || null;[m
+[31m-  void selectedScenario;[m
+[31m-[m
+   async function handleRunSimulation() {[m
+     if (selectedScenarioId === null || loading) {[m
+       return;[m
+[36m@@ -174,7 +179,7 @@[m [mexport default function ScenarioSimulationPage() {[m
+       belowSafety,[m
+       aggregateShortage: hasUnits ? shortageAgg : null,[m
+       redistributionQty,[m
+[31m-      disruptionDuration: result.scenario?.scenario?.duration_days ?? result.scenario?.scenario?.duration_days ?? null,[m
+[32m+[m[32m      disruptionDuration: result.scenario?.scenario?.duration_days ?? null,[m
+     };[m
+   }, [result]);[m
+ [m
+[36m@@ -209,25 +214,81 @@[m [mexport default function ScenarioSimulationPage() {[m
+         ? "Database data (Supabase)"[m
+         : "Data source unavailable";[m
+ [m
+[31m-  const riskCounts = useMemo(() => {[m
+[31m-    if (!result) return { CRITICAL: 0, RED: 0, YELLOW: 0, GREEN: 0 };[m
+[31m-    const counts = { CRITICAL: 0, RED: 0, YELLOW: 0, GREEN: 0 } as Record<string, number>;[m
+[31m-    for (const r of result.results || []) {[m
+[31m-      const label = (r.risk_label || r.risk_level || "").toString();[m
+[31m-      if (label in counts) counts[label]++;[m
+[31m-      else if (label === "HIGH") counts["RED"]++;[m
+[31m-      else if (label === "MEDIUM") counts["YELLOW"]++;[m
+[31m-      else if (label === "LOW") counts["GREEN"]++;[m
+[32m+[m[32m  const hospitalRiskCats = useMemo(() => {[m
+[32m+[m[32m    if (!result?.results) return { Low: 0, Caution: 0, High: 0, Unknown: 0 };[m
+[32m+[m[32m    const counts = { Low: 0, Caution: 0, High: 0, Unknown: 0 } as Record<string, number>;[m
+[32m+[m[32m    for (const r of result.results) {[m
+[32m+[m[32m      const cat = normalizeRiskCategory(r.risk_label || r.risk_level);[m
+[32m+[m[32m      counts[cat]++;[m
+     }[m
+     return counts;[m
+   }, [result]);[m
+ [m
+[32m+[m[32m  const productRisk = useMemo(() => {[m
+[32m+[m[32m    if (!result?.results) return [];[m
+[32m+[m[32m    const map = new Map<string, { name: string; unit: string; shortage: number; atRiskHospitals: number }>();[m
+[32m+[m[32m    for (const r of result.results) {[m
+[32m+[m[32m      const name = r.medicine?.generic_name || `Medicine ${r.medicine_id}`;[m
+[32m+[m[32m      const unit = r.medicine?.unit || "";[m
+[32m+[m[32m      const key = `${name}|${unit}`;[m
+[32m+[m[32m      if (!map.has(key)) {[m
+[32m+[m[32m        map.set(key, { name, unit, shortage: 0, atRiskHospitals: 0 });[m
+[32m+[m[32m      }[m
+[32m+[m[32m      const entry = map.get(key)!;[m
+[32m+[m[32m      if (typeof r.estimated_shortage_quantity === "number") entry.shortage += r.estimated_shortage_quantity;[m
+[32m+[m[32m      const cat = normalizeRiskCategory(r.risk_label || r.risk_level);[m
+[32m+[m[32m      if (cat !== "Low") entry.atRiskHospitals++;[m
+[32m+[m[32m    }[m
+[32m+[m[32m    return Array.from(map.values()).sort((a, b) => b.shortage - a.shortage || b.atRiskHospitals - a.atRiskHospitals);[m
+[32m+[m[32m  }, [result]);[m
+[32m+[m
+[32m+[m[32m  const depletionSeries = useMemo(() => {[m
+[32m+[m[32m    if (!result?.results) return [];[m
+[32m+[m[32m    // Use first representative item with days array; prefer item with most days[m
+[32m+[m[32m    let best: any = null;[m
+[32m+[m[32m    for (const r of result.results) {[m
+[32m+[m[32m      if (r.days && r.days.length > 0) {[m
+[32m+[m[32m        if (!best || r.days.length > best.days.length) best = r;[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m    if (!best || !best.days) return [];[m
+[32m+[m[32m    return best.days.map((d: any) => ({[m
+[32m+[m[32m      day: d.day,[m
+[32m+[m[32m      projected: d.projected_stock,[m
+[32m+[m[32m      safety: best.safety_stock,[m
+[32m+[m[32m      unit: best.medicine?.unit || "",[m
+[32m+[m[32m    }));[m
+[32m+[m[32m  }, [result]);[m
+[32m+[m
+[32m+[m[32m  const interventionData = useMemo(() => {[m
+[32m+[m[32m    if (!result?.results) return [];[m
+[32m+[m[32m    // Aggregate across all results for same scope where possible[m
+[32m+[m[32m    const items = result.results.slice(0, 10); // limit for readability[m
+[32m+[m[32m    return items.map((r: any) => {[m
+[32m+[m[32m      const baseline = r.starting_stock;[m
+[32m+[m[32m      const afterDisruption = (r.projected_remaining_stock_before_redistribution !== undefined && r.projected_remaining_stock_before_redistribution !== null)[m
+[32m+[m[32m        ? r.projected_remaining_stock_before_redistribution[m
+[32m+[m[32m        : r.projected_remaining_stock;[m
+[32m+[m[32m      const post = r.projected_remaining_stock;[m
+[32m+[m[32m      return {[m
+[32m+[m[32m        label: `${r.hospital?.hospital_name || r.hospital_id} - ${r.medicine?.generic_name || r.medicine_id}`,[m
+[32m+[m[32m        baseline,[m
+[32m+[m[32m        afterDisruption,[m
+[32m+[m[32m        postIntervention: post,[m
+[32m+[m[32m        unit: r.medicine?.unit || "",[m
+[32m+[m[32m        redistributed: !!r.redistribution,[m
+[32m+[m[32m      };[m
+[32m+[m[32m    });[m
+[32m+[m[32m  }, [result]);[m
+[32m+[m
+[32m+[m[32m  const unitForHosp = result?.results?.find((r) => r.medicine?.unit)?.medicine?.unit || "";[m
+[32m+[m
+   return ([m
+     <div className="container page">[m
+       <header className="page__header">[m
+         <h1>Five Scenarios Simulation</h1>[m
+         <p>[m
+[31m-          Simulate supply-chain disruptions with data-grounded metrics, charts, and detailed results.[m
+[32m+[m[32m          Simulate supply-chain disruptions with data-grounded metrics and interactive charts.[m
+         </p>[m
+       </header>[m
+ [m
+[36m@@ -394,7 +455,7 @@[m [mexport default function ScenarioSimulationPage() {[m
+               </div>[m
+               <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>[m
+                 <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Proposed redistribution qty</div>[m
+[31m-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.redistributionQty}</div>[m
+[32m+[m[32m                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.redistributionQty} (simulated)</div>[m
+               </div>[m
+               <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>[m
+                 <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Disruption duration</div>[m
+[36m@@ -405,58 +466,231 @@[m [mexport default function ScenarioSimulationPage() {[m
+ [m
+           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.9rem" }}>[m
+             <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>[m
+[31m-              <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Hospital risk distribution</div>[m
+[31m-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>[m
+[31m-                {["CRITICAL", "RED", "YELLOW", "GREEN"].map((label) => ([m
+[31m-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>[m
+[31m-                    <div style={{ width: "90px", fontSize: "0.85rem" }}>{label}</div>[m
+[31m-                    <div style={{ flex: 1, background: "var(--color-surface-soft)", height: "10px", borderRadius: "999px", overflow: "hidden" }}>[m
+[31m-                      <div[m
+[31m-                        style={{[m
+[31m-                          height: "100%",[m
+[31m-                          width: `${Math.max(4, ((riskCounts[label] || 0) / Math.max(1, result.results?.length || 1)) * 100)}%`,[m
+[31m-                          background:[m
+[31m-                            label === "CRITICAL"[m
+[31m-                              ? "#dc2626"[m
+[31m-                              : label === "RED"[m
+[31m-                                ? "#ea580c"[m
+[31m-                                : label === "YELLOW"[m
+[31m-                                  ? "#f59e0b"[m
+[31m-                                  : "#16a34a",[m
+[31m-                        }}[m
+[31m-                      />[m
+[31m-                    </div>[m
+[31m-                    <div style={{ width: "30px", textAlign: "right", fontSize: "0.85rem" }}>{riskCounts[label] || 0}</div>[m
+[31m-                  </div>[m
+[31m-                ))}[m
+[32m+[m[32m              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 1: Inventory vs. Safety Stock — Grouped Bar Chart</div>[m
+[32m+[m[32m              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Compare projected remaining inventory against safety stock for each hospital</div>[m
+[32m+[m[32m              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>X-axis: Hospital names | Y-axis: Inventory quantity{unitForHosp ? ` (${unitForHosp})` : ""}</div>[m
+[32m+[m[32m              {sortedResults.length > 0 ? ([m
+[32m+[m[32m                <svg width="100%" height="240" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid meet">[m
+[32m+[m[32m                  {(() => {[m
+[32m+[m[32m                    const topItems = sortedResults.slice(0, 10);[m
+[32m+[m[32m                    const maxVal = Math.max(1, ...topItems.map((x: any) => Math.max(x.safety_stock || 0, x.projected_remaining_stock || 0)));[m
+[32m+[m[32m                    return topItems.map((item: any, idx: number) => {[m
+[32m+[m[32m                      const barW = 22;[m
+[32m+[m[32m                      const gap = 10;[m
+[32m+[m[32m                      const x = idx * (barW * 2 + gap) + 40;[m
+[32m+[m[32m                      const hSafety = ((item.safety_stock || 0) / maxVal) * 140;[m
+[32m+[m[32m                      const hProj = ((item.projected_remaining_stock || 0) / maxVal) * 140;[m
+[32m+[m[32m                      const hospName = item.hospital?.hospital_name || `H${item.hospital_id}`;[m
+[32m+[m[32m                      return ([m
+[32m+[m[32m                        <g key={idx}>[m
+[32m+[m[32m                          <rect x={x} y={170 - hSafety} width={barW} height={hSafety} fill="#f59e0b">[m
+[32m+[m[32m                            <title>{`Hospital: ${hospName}\nSafety stock: ${item.safety_stock} ${unitForHosp}\nProduct: ${item.medicine?.generic_name}`}</title>[m
+[32m+[m[32m                          </rect>[m
+[32m+[m[32m                          <rect x={x + barW} y={170 - hProj} width={barW} height={hProj} fill="#2563eb">[m
+[32m+[m[32m                            <title>{`Hospital: ${hospName}\nProduct: ${item.medicine?.generic_name}\nProjected remaining stock: ${item.projected_remaining_stock} ${unitForHosp}\nSafety stock: ${item.safety_stock} ${unitForHosp}`}</title>[m
+[32m+[m[32m                          </rect>[m
+[32m+[m[32m                          <text x={x + barW} y={195} fontSize="7" textAnchor="middle" transform={`rotate(-45 ${x + barW},195)`}>[m
+[32m+[m[32m                            {hospName.length > 14 ? hospName.slice(0, 14) + "…" : hospName}[m
+[32m+[m[32m                          </text>[m
+[32m+[m[32m                        </g>[m
+[32m+[m[32m                      );[m
+[32m+[m[32m                    });[m
+[32m+[m[32m                  })()}[m
+[32m+[m[32m                  {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {[m
+[32m+[m[32m                    const maxVal = Math.max(1, ...sortedResults.slice(0, 10).map((x: any) => Math.max(x.safety_stock || 0, x.projected_remaining_stock || 0)));[m
+[32m+[m[32m                    const y = 170 - t * 140;[m
+[32m+[m[32m                    const val = Math.round(maxVal * t);[m
+[32m+[m[32m                    return ([m
+[32m+[m[32m                      <g key={`g1-${idx}`}>[m
+[32m+[m[32m                        <line x1="35" y1={y} x2="310" y2={y} stroke="#e2e8f0" strokeDasharray="2 2" />[m
+[32m+[m[32m                        <text x="30" y={y + 3} fontSize="7" textAnchor="end" fill="#64748b">{val}</text>[m
+[32m+[m[32m                      </g>[m
+[32m+[m[32m                    );[m
+[32m+[m[32m                  })}[m
+[32m+[m[32m                  <line x1="35" y1="170" x2="310" y2="170" stroke="#cbd5e1" />[m
+[32m+[m[32m                  <text x="170" y="230" fontSize="8" textAnchor="middle" fill="#475569">Hospital</text>[m
+[32m+[m[32m                </svg>[m
+[32m+[m[32m              ) : ([m
+[32m+[m[32m                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No data</div>[m
+[32m+[m[32m              )}[m
+[32m+[m[32m              <div style={{ display: "flex", gap: "0.8rem", fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.3rem" }}>[m
+[32m+[m[32m                <span>■ Projected remaining stock (Series 1)</span>[m
+[32m+[m[32m                <span>■ Safety stock (Series 2)</span>[m
+               </div>[m
+             </div>[m
+ [m
+             <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>[m
+[31m-              <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Inventory vs safety stock (top items)</div>[m
+[31m-              <svg width="100%" height="200" viewBox="0 0 300 200" preserveAspectRatio="none">[m
+[31m-                {(sortedResults.slice(0, 8)).map((item, idx) => {[m
+[31m-                  const maxVal = Math.max(1, ...sortedResults.slice(0, 8).map((x) => Math.max(x.starting_stock || 0, x.safety_stock || 0, x.projected_remaining_stock || 0)));[m
+[31m-                  const barW = 30;[m
+[31m-                  const gap = 6;[m
+[31m-                  const x = idx * (barW + gap) + 10;[m
+[31m-                  const hStock = ((item.starting_stock || 0) / maxVal) * 140;[m
+[31m-                  const hSafety = ((item.safety_stock || 0) / maxVal) * 140;[m
+[31m-                  const hProj = ((item.projected_remaining_stock || 0) / maxVal) * 140;[m
+[32m+[m[32m              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 2: Hospital Risk Distribution — Donut Chart</div>[m
+[32m+[m[32m              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Number of hospitals in each risk category (from simulation risk categories)</div>[m
+[32m+[m[32m              {result.results && result.results.length > 0 ? ([m
+[32m+[m[32m                <svg width="100%" height="200" viewBox="0 0 200 200">[m
+[32m+[m[32m                  {(() => {[m
+[32m+[m[32m                    const total = result.results.length;[m
+[32m+[m[32m                    const colors: Record<string, string> = { Low: "#16a34a", Caution: "#f59e0b", High: "#dc2626", Unknown: "#94a3b8" };[m
+[32m+[m[32m                    let angle = 0;[m
+[32m+[m[32m                    const cats = ["Low", "Caution", "High", "Unknown"] as const;[m
+[32m+[m[32m                    return cats.map((cat) => {[m
+[32m+[m[32m                      const count = hospitalRiskCats[cat] || 0;[m
+[32m+[m[32m                      if (count === 0) return null;[m
+[32m+[m[32m                      const pct = count / total;[m
+[32m+[m[32m                      const start = angle;[m
+[32m+[m[32m                      const end = angle + pct * 2 * Math.PI;[m
+[32m+[m[32m                      angle = end;[m
+[32m+[m[32m                      const x1 = 100 + 60 * Math.cos(start);[m
+[32m+[m[32m                      const y1 = 100 + 60 * Math.sin(start);[m
+[32m+[m[32m                      const x2 = 100 + 60 * Math.cos(end);[m
+[32m+[m[32m                      const y2 = 100 + 60 * Math.sin(end);[m
+[32m+[m[32m                      const large = pct > 0.5 ? 1 : 0;[m
+[32m+[m[32m                      const path = `M 100 100 L ${x1} ${y1} A 60 60 0 ${large} 1 ${x2} ${y2} Z`;[m
+[32m+[m[32m                      return <path key={cat} d={path} fill={colors[cat]}><title>{`${cat}: ${count} (${Math.round(pct * 100)}%)`}</title></path>;[m
+[32m+[m[32m                    });[m
+[32m+[m[32m                  })()}[m
+[32m+[m[32m                  <circle cx="100" cy="100" r="30" fill="white" />[m
+[32m+[m[32m                </svg>[m
+[32m+[m[32m              ) : ([m
+[32m+[m[32m                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No data</div>[m
+[32m+[m[32m    

@@ -48,6 +48,12 @@ import {
 } from "../data/defaultScenarios.js";
 import type { ScenarioDefinition } from "../data/defaultScenarios.js";
 import { buildSyntheticDataset } from "./syntheticData.js";
+import {
+  loadOperationalDataset,
+  type OperationalDataset,
+  type OperationalProvenance,
+  type OperationalScope,
+} from "./operationalData.js";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RiskLabel = "GREEN" | "YELLOW" | "RED" | "CRITICAL";
@@ -72,6 +78,24 @@ export type Recommendation = {
   why: string;
   action: string;
   expected_impact: string;
+};
+
+export type BaselineProjection = {
+  daily_demand: number;
+  projected_demand: number;
+  projected_remaining_stock: number;
+  days_of_stock_remaining: number | null;
+  stock_out_day: number | null;
+  safety_stock_breach: boolean;
+  estimated_shortage_quantity: number;
+  risk_label: RiskLabel;
+};
+
+export type BaselineImpact = {
+  additional_demand: number;
+  projected_stock_delta: number;
+  additional_shortage: number;
+  stock_out_day_shift: number | null;
 };
 
 export type SimulationResult = {
@@ -108,6 +132,10 @@ export type SimulationResult = {
   safety_stock_breach: boolean;
   estimated_shortage_quantity: number;
 
+  /* Same-window, no-disruption reference (before redistribution). */
+  baseline: BaselineProjection;
+  impact_vs_baseline: BaselineImpact;
+
   /* Risk (transparent). */
   risk_label: RiskLabel;
   risk_reason: string;
@@ -142,6 +170,17 @@ export type ScenarioSummary = {
   projected_shortage_total: number;
   worst_risk_label: RiskLabel;
   result_counts: Record<RiskLabel, number>;
+  baseline: {
+    projected_shortage_total: number;
+    worst_risk_label: RiskLabel;
+    result_counts: Record<RiskLabel, number>;
+  };
+  impact_vs_baseline: {
+    additional_projected_shortage: number;
+    additional_stockout_items: number;
+    items_with_lower_projected_stock: number;
+    items_with_higher_risk: number;
+  };
   assumptions: string[];
 };
 
@@ -152,7 +191,12 @@ export type ScenarioResponse = {
   model: ModelInfo;
   results: SimulationResult[];
   source: ScenarioDataSource;
+  dataProvenance: OperationalProvenance;
 };
+
+export interface ScenarioSimulationOptions {
+  scope?: OperationalScope;
+}
 
 export type ScenarioRecord = {
   id: number;
@@ -182,6 +226,7 @@ export interface ScenarioDataProvider {
   loadScenario(id: number): Promise<ScenarioRecord | null>;
   loadInventory(): Promise<ScenarioInventoryRow[]>;
   loadDemandHistory(): Promise<ScenarioDemandRow[]>;
+  loadProvenance?(): Promise<OperationalProvenance>;
 }
 
 export class ScenarioError extends Error {
@@ -431,97 +476,76 @@ async function scenarioDb() {
   return supabase;
 }
 
-const defaultScenarioDataProvider: ScenarioDataProvider = {
-  async loadScenario(id) {
-    const supabase = await scenarioDb();
+function createDefaultScenarioDataProvider(
+  scope?: OperationalScope,
+): ScenarioDataProvider {
+  let datasetPromise: Promise<OperationalDataset> | null = null;
 
-    const { data, error } = await supabase
-      .from("scenarios")
-      .select(
-        "id, name, description, disruption_type, duration_days, demand_change_percent, transport_delay_days",
-      )
-      .eq("id", id)
-      .maybeSingle();
+  const dataset = () => {
+    datasetPromise ??= loadOperationalDataset(scope);
 
-    if (error) {
-      throw new Error(`Scenario lookup failed: ${error.message}`);
-    }
+    return datasetPromise;
+  };
 
-    return (data as ScenarioRecord | null) ?? null;
-  },
+  return {
+    async loadScenario(id) {
+      const supabase = await scenarioDb();
 
-  async loadInventory() {
-    const supabase = await scenarioDb();
-
-    const { data, error } = await supabase
-      .from("inventory")
-      .select("hospital_id, medicine_id, current_stock, safety_stock");
-
-    if (error) {
-      throw new Error(`Inventory lookup failed: ${error.message}`);
-    }
-
-    return (data ?? []).map((row) => ({
-      hospital_id: Number(row.hospital_id),
-      medicine_id: Number(row.medicine_id),
-      current_stock: Number(row.current_stock),
-      safety_stock: Number(row.safety_stock),
-    }));
-  },
-
-  async loadDemandHistory() {
-    const supabase = await scenarioDb();
-    const rows: ScenarioDemandRow[] = [];
-    const PAGE_SIZE = 1000;
-    let offset = 0;
-
-    for (;;) {
       const { data, error } = await supabase
-        .from("demand_history")
-        .select("hospital_id, medicine_id, demand_date, demand")
-        .order("hospital_id", { ascending: true })
-        .order("medicine_id", { ascending: true })
-        .order("demand_date", { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1);
+        .from("scenarios")
+        .select(
+          "id, name, description, disruption_type, duration_days, demand_change_percent, transport_delay_days",
+        )
+        .eq("id", id)
+        .maybeSingle();
 
       if (error) {
-        throw new Error(`Demand history lookup failed: ${error.message}`);
+        throw new Error(`Scenario lookup failed: ${error.message}`);
       }
 
-      if (!data || data.length === 0) {
-        break;
-      }
+      return (data as ScenarioRecord | null) ?? null;
+    },
 
-      rows.push(
-        ...data.map((row) => ({
-          hospital_id: Number(row.hospital_id),
-          medicine_id: Number(row.medicine_id),
-          date: String(row.demand_date).slice(0, 10),
-          demand: Number(row.demand),
-        })),
-      );
+    async loadInventory() {
+      const loaded = await dataset();
 
-      if (data.length < PAGE_SIZE) {
-        break;
-      }
+      return loaded.inventory.map((item) => ({
+        hospital_id: item.hospital_id,
+        medicine_id: item.medicine_id,
+        current_stock: item.current_stock,
+        safety_stock: item.safety_stock,
+      }));
+    },
 
-      offset += PAGE_SIZE;
-    }
+    async loadDemandHistory() {
+      const loaded = await dataset();
 
-    return rows;
-  },
-};
+      return loaded.demandRows;
+    },
+
+    async loadProvenance() {
+      const loaded = await dataset();
+
+      return loaded.provenance;
+    },
+  };
+}
 
 export async function simulateScenario(
   scenarioId: unknown,
-  provider: ScenarioDataProvider = defaultScenarioDataProvider,
+  provider?: ScenarioDataProvider,
+  options: ScenarioSimulationOptions = {},
 ): Promise<ScenarioResponse> {
   const id = parseScenarioId(scenarioId);
+  const usingDefaultProvider = provider === undefined;
+  const dataProvider =
+    provider ?? createDefaultScenarioDataProvider(options.scope);
   let source: ScenarioDataSource = "supabase";
+  let provenance: OperationalProvenance = "legacy";
   let scenarioRecord: ScenarioRecord | null;
 
   try {
-    scenarioRecord = await provider.loadScenario(id);
+    scenarioRecord = await dataProvider.loadScenario(id);
   } catch (error) {
     throw asDataAccessError("Scenario lookup", error);
   }
@@ -533,7 +557,7 @@ export async function simulateScenario(
   let inventory: ScenarioInventoryRow[];
 
   try {
-    inventory = await provider.loadInventory();
+    inventory = await dataProvider.loadInventory();
   } catch (error) {
     throw asDataAccessError("Inventory lookup", error);
   }
@@ -541,16 +565,33 @@ export async function simulateScenario(
   let demandRows: ScenarioDemandRow[];
 
   try {
-    demandRows = await provider.loadDemandHistory();
+    demandRows = await dataProvider.loadDemandHistory();
   } catch (error) {
     throw asDataAccessError("Demand history lookup", error);
   }
 
-  if (inventory.length === 0 || demandRows.length === 0) {
-    const demo = buildDemoScenarioData();
+  if (dataProvider.loadProvenance) {
+    try {
+      provenance = await dataProvider.loadProvenance();
+    } catch (error) {
+      throw asDataAccessError("Data provenance lookup", error);
+    }
+  }
 
-    inventory = demo.inventory;
-    demandRows = demo.demandRows;
+  if (inventory.length === 0 || demandRows.length === 0) {
+    if (usingDefaultProvider) {
+      inventory = [];
+      demandRows = [];
+    } else {
+      const demo = buildDemoScenarioData();
+
+      inventory = demo.inventory;
+      demandRows = demo.demandRows;
+      provenance = "synthetic";
+    }
+  }
+
+  if (provenance === "synthetic") {
     source = "demo";
   }
 
@@ -839,6 +880,19 @@ export async function simulateScenario(
       safety_stock_breach: safetyBreach,
       estimated_shortage_quantity: shortageUnits,
 
+      baseline: buildBaselineProjection(
+        startingStock,
+        safetyStock,
+        baseRate,
+        windowDays,
+      ),
+      impact_vs_baseline: {
+        additional_demand: 0,
+        projected_stock_delta: 0,
+        additional_shortage: 0,
+        stock_out_day_shift: null,
+      },
+
       risk_label: riskLabel,
       risk_reason: riskReason,
 
@@ -859,6 +913,10 @@ export async function simulateScenario(
   }
   applyRedistribution(results);
 
+  for (const result of results) {
+    result.impact_vs_baseline = compareToBaseline(result);
+  }
+
   // 12. Scenario-level summary
   const affectedMedicineIds = Array.from(new Set(results.map((r) => r.medicine_id)));
   const affectedHospitalIds = Array.from(new Set(results.map((r) => r.hospital_id)));
@@ -872,18 +930,54 @@ export async function simulateScenario(
 
   let worst: RiskLabel = "GREEN";
   let shortageTotal = 0;
+  let baselineShortageTotal = 0;
+  let baselineWorst: RiskLabel = "GREEN";
+  let additionalStockoutItems = 0;
+  let lowerProjectedStockItems = 0;
+  let higherRiskItems = 0;
+
+  const baselineCounts: ScenarioSummary["result_counts"] = {
+    GREEN: 0,
+    YELLOW: 0,
+    RED: 0,
+    CRITICAL: 0,
+  };
 
   for (const result of results) {
     counts[result.risk_label] += 1;
+    baselineCounts[result.baseline.risk_label] += 1;
 
     if (rankLabel(result.risk_label) > rankLabel(worst)) {
       worst = result.risk_label;
     }
 
+    if (rankLabel(result.baseline.risk_label) > rankLabel(baselineWorst)) {
+      baselineWorst = result.baseline.risk_label;
+    }
+
     shortageTotal += result.estimated_shortage_quantity;
+    baselineShortageTotal += result.baseline.estimated_shortage_quantity;
+
+    if (
+      result.baseline.stock_out_day === null &&
+      result.stock_out_day !== null
+    ) {
+      additionalStockoutItems += 1;
+    }
+
+    if (
+      result.projected_remaining_stock <
+      result.baseline.projected_remaining_stock
+    ) {
+      lowerProjectedStockItems += 1;
+    }
+
+    if (rankLabel(result.risk_label) > rankLabel(result.baseline.risk_label)) {
+      higherRiskItems += 1;
+    }
   }
 
-  const summary = buildSummary(
+  const summaryBase = buildSummary(
     scenario,
     affectedSupplier ? [affectedSupplier] : [],
     affectedHospitalIds,
@@ -900,13 +994,53 @@ export async function simulateScenario(
     },
   );
 
-  if (source === "demo") {
-    summary.assumptions.push(
-      "Data source: deterministic synthetic demo inventory and demand; these are not live hospital records.",
-    );
+  const summary: ScenarioSummary = {
+    ...summaryBase,
+    baseline: {
+      projected_shortage_total: round2(baselineShortageTotal),
+      worst_risk_label: baselineWorst,
+      result_counts: baselineCounts,
+    },
+    impact_vs_baseline: {
+      additional_projected_shortage: round2(
+        shortageTotal - baselineShortageTotal,
+      ),
+      additional_stockout_items: additionalStockoutItems,
+      items_with_lower_projected_stock: lowerProjectedStockItems,
+      items_with_higher_risk: higherRiskItems,
+    },
+  };
+
+  switch (provenance) {
+    case "imported-real":
+      summary.assumptions.push(
+        "Data source: imported real inventory_daily_reports records; values are shown exactly as imported.",
+      );
+      break;
+    case "imported-synthetic":
+      summary.assumptions.push(
+        "Data source: imported inventory_daily_reports records explicitly marked as synthetic demo data.",
+      );
+      break;
+    case "legacy":
+      summary.assumptions.push(
+        "Data source: seeded legacy inventory and demand_history records.",
+      );
+      break;
+    case "synthetic":
+      summary.assumptions.push(
+        "Data source: deterministic synthetic demo inventory and demand; these are not live hospital records.",
+      );
+      break;
   }
 
-  return { source, scenario: summary, model: modelInfo, results };
+  return {
+    source,
+    scenario: summary,
+    model: modelInfo,
+    results,
+    dataProvenance: provenance,
+  };
 }
 
 function rankLabel(label: RiskLabel): number {
@@ -963,20 +1097,116 @@ function riskLabelForRemaining(
   return "GREEN";
 }
 
-function refreshAfterRedistribution(item: SimulationResult): void {
-  item.projected_remaining_stock = round2(
-    Math.max(0, item.projected_remaining_stock),
+function buildBaselineProjection(
+  startingStock: number,
+  safetyStock: number,
+  dailyDemand: number,
+  windowDays: number,
+): BaselineProjection {
+  const projectedDemand = round2(dailyDemand * windowDays);
+  const projectedRemaining = round2(
+    Math.max(0, startingStock - projectedDemand),
   );
+  const rawStockOutDay =
+    startingStock <= 0
+      ? 1
+      : dailyDemand > 0
+        ? Math.ceil(startingStock / dailyDemand)
+        : null;
+  const stockOutDay =
+    rawStockOutDay !== null && rawStockOutDay <= windowDays
+      ? rawStockOutDay
+      : null;
+  const riskLabel =
+    stockOutDay !== null
+      ? "CRITICAL"
+      : riskLabelForRemaining(projectedRemaining, safetyStock);
+
+  return {
+    daily_demand: dailyDemand,
+    projected_demand: projectedDemand,
+    projected_remaining_stock: projectedRemaining,
+    days_of_stock_remaining:
+      dailyDemand > 0 ? round2(startingStock / dailyDemand) : null,
+    stock_out_day: stockOutDay,
+    safety_stock_breach: projectedRemaining < safetyStock,
+    estimated_shortage_quantity: Math.max(
+      0,
+      Math.ceil(safetyStock - projectedRemaining),
+    ),
+    risk_label: riskLabel,
+  };
+}
+
+function compareToBaseline(item: SimulationResult): BaselineImpact {
+  return {
+    additional_demand: round2(
+      item.projected_demand - item.baseline.projected_demand,
+    ),
+    projected_stock_delta: round2(
+      item.projected_remaining_stock - item.baseline.projected_remaining_stock,
+    ),
+    additional_shortage: round2(
+      item.estimated_shortage_quantity -
+        item.baseline.estimated_shortage_quantity,
+    ),
+    stock_out_day_shift:
+      item.stock_out_day !== null && item.baseline.stock_out_day !== null
+        ? item.stock_out_day - item.baseline.stock_out_day
+        : null,
+  };
+}
+
+function refreshAfterRedistribution(
+  item: SimulationResult,
+  transferUnits: number,
+): void {
+  item.projected_remaining_stock = round2(
+    Math.max(0, item.projected_remaining_stock + transferUnits),
+  );
+
+  let stockOutDay: number | null = null;
+
+  for (const day of item.days) {
+    day.projected_stock = round2(
+      Math.max(0, day.projected_stock + transferUnits),
+    );
+
+    if (day.projected_stock <= 0) {
+      day.status = "STOCK_OUT";
+
+      if (stockOutDay === null) {
+        stockOutDay = day.day;
+      }
+    } else if (day.projected_stock <= item.safety_stock) {
+      day.status = "AT_RISK";
+    } else {
+      day.status = "NORMAL";
+    }
+  }
+
+  item.stock_out_day = stockOutDay;
   item.safety_stock_breach =
     item.projected_remaining_stock < item.safety_stock;
   item.estimated_shortage_quantity = Math.max(
     0,
     Math.ceil(item.safety_stock - item.projected_remaining_stock),
   );
-  item.risk_label = riskLabelForRemaining(
-    item.projected_remaining_stock,
-    item.safety_stock,
-  );
+  item.days_of_stock_remaining =
+    item.effective_daily_demand > 0
+      ? round2(
+          Math.max(0, item.projected_remaining_stock) /
+            item.effective_daily_demand,
+        )
+      : item.days_of_stock_remaining;
+
+  item.risk_label =
+    stockOutDay !== null
+      ? "CRITICAL"
+      : riskLabelForRemaining(
+          item.projected_remaining_stock,
+          item.safety_stock,
+        );
   item.risk_level = mapRiskLevel(item.risk_label);
   item.risk_reason = buildRiskReason({
     label: item.risk_label,
@@ -984,9 +1214,7 @@ function refreshAfterRedistribution(item: SimulationResult): void {
     windowDays: item.disruption_window_days,
     remaining: item.projected_remaining_stock,
     safety: item.safety_stock,
-    stockOutDay: item.projected_remaining_stock <= 0
-      ? item.stock_out_day
-      : null,
+    stockOutDay,
     cause: " after the proposed redistribution",
   });
 
@@ -1023,12 +1251,10 @@ export function applyRedistribution(results: SimulationResult[]): void {
       .filter((item) => item.estimated_shortage_quantity > 0)
       .sort((a, b) => b.estimated_shortage_quantity - a.estimated_shortage_quantity);
 
-    const donors = items
-      .filter((item) => item.projected_remaining_stock > item.safety_stock)
-      .sort((a, b) => b.projected_remaining_stock - a.projected_remaining_stock);
-
     for (const recipient of recipients) {
-      const donor = donors.find(
+      const shortageBeforeTransfer = recipient.estimated_shortage_quantity;
+
+      const donor = items.find(
         (candidate) =>
           candidate.hospital_id !== recipient.hospital_id &&
           candidate.projected_remaining_stock - candidate.safety_stock >= 1,
@@ -1050,15 +1276,8 @@ export function applyRedistribution(results: SimulationResult[]): void {
         continue;
       }
 
-      donor.projected_remaining_stock = round2(
-        donor.projected_remaining_stock - transferUnits,
-      );
-      recipient.projected_remaining_stock = round2(
-        recipient.projected_remaining_stock + transferUnits,
-      );
-
-      refreshAfterRedistribution(donor);
-      refreshAfterRedistribution(recipient);
+      refreshAfterRedistribution(donor, -transferUnits);
+      refreshAfterRedistribution(recipient, transferUnits);
 
       recipient.redistribution = {
         medicine_id: medicineId,
@@ -1069,7 +1288,7 @@ export function applyRedistribution(results: SimulationResult[]): void {
 
       recipient.recommendations.unshift({
         type: "reallocate",
-        why: `${recipient.hospital.hospital_name} is projected to fall ${recipientShortage} ${recipient.medicine.unit} below the safety stock of ${recipient.medicine.generic_name}.`,
+        why: `${recipient.hospital.hospital_name} is projected to fall ${shortageBeforeTransfer} ${recipient.medicine.unit} below the safety stock of ${recipient.medicine.generic_name}.`,
         action: `Consider transferring ${transferUnits} ${recipient.medicine.unit} of ${recipient.medicine.generic_name} from ${donor.hospital.hospital_name} to ${recipient.hospital.hospital_name}, subject to local inventory and authorization.`,
         expected_impact:
           recipient.estimated_shortage_quantity === 0
@@ -1081,7 +1300,7 @@ export function applyRedistribution(results: SimulationResult[]): void {
         type: "reallocate",
         why: `${donor.hospital.hospital_name} holds a projected surplus of ${donorSurplus} ${donor.medicine.unit} of ${donor.medicine.generic_name}.`,
         action: `Consider releasing ${transferUnits} ${donor.medicine.unit} of ${donor.medicine.generic_name} to ${recipient.hospital.hospital_name}, subject to local inventory and authorization.`,
-        expected_impact: `Balances the network position without adding procurement cost during the disruption.`,
+        expected_impact: `Leaves ${round2(donor.projected_remaining_stock - donor.safety_stock)} ${donor.medicine.unit} above the donor safety stock without adding procurement cost.`,
       });
 
       recipient.recommendation =
@@ -1115,7 +1334,7 @@ function buildSummary(
     worst: RiskLabel;
     counts: ScenarioSummary["result_counts"];
   },
-): ScenarioSummary {
+): Omit<ScenarioSummary, "baseline" | "impact_vs_baseline"> {
   const demandChangeLabel =
     opts.demandChangePercent > 0
       ? `+${opts.demandChangePercent}%`
@@ -1134,6 +1353,7 @@ function buildSummary(
     `Stock projections assume no resupply is received during the ${opts.windowDays}-day disruption window.`,
     "Daily demand is the ML-forecast average over the next 7 days per hospital × medicine.",
     "Risk bands: GREEN = above 1.5× safety stock; YELLOW = within 1.5× of safety; RED = below safety stock; CRITICAL = projected stock-out.",
+    `Baseline comparison uses the same ${opts.windowDays}-day window with current forecast demand, no demand surge, no disruption, and no redistribution.`,
   ];
 
   if (affectedSuppliers.length > 0) {

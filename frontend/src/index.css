@@ -8,6 +8,37 @@
 
 /* 1. Design tokens */
 :root {
+  /* Dark theme (default) - Pulse AI healthcare dashboard */
+  --color-bg: #0B1220;
+  --color-surface: #111B2E;
+  --color-surface-soft: #172338;
+  --color-primary: #14B8A6;
+  --color-primary-dark: #0F766E;
+  --color-primary-hover: #22D3EE;
+  --color-primary-soft: rgba(20, 184, 166, 0.16);
+  --color-accent: #14B8A6;
+  --color-accent-soft: rgba(20, 184, 166, 0.16);
+  --color-text: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-border: #263449;
+  --color-focus: #14B8A6;
+  --color-danger: #F87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.16);
+  --color-warning: #FBBF24;
+  --color-warning-soft: rgba(251, 191, 36, 0.16);
+  --color-success: #34D399;
+  --color-success-soft: rgba(52, 211, 153, 0.16);
+  --radius-sm: 0.5rem;
+  --radius: 0.875rem;
+  --radius-lg: 1.25rem;
+  --shadow-card: 0 1px 2px rgba(2, 6, 23, 0.4), 0 10px 30px rgba(2, 6, 23, 0.35);
+  --shadow-pop: 0 12px 40px rgba(2, 6, 23, 0.5);
+  --tap-min: 3rem;
+  --font-stack: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+    "Noto Sans Devanagari", sans-serif;
+}
+
+[data-theme="light"] {
   --color-bg: #f4f8f6;
   --color-surface: #ffffff;
   --color-surface-soft: #edf4f0;
@@ -25,14 +56,10 @@
   --color-danger-soft: #fdecea;
   --color-warning: #7a5a00;
   --color-warning-soft: #fdf3d7;
-  --radius-sm: 0.5rem;
-  --radius: 0.875rem;
-  --radius-lg: 1.25rem;
+  --color-success: #0f8a63;
+  --color-success-soft: #e1f3eb;
   --shadow-card: 0 1px 2px rgba(20, 50, 40, 0.06), 0 8px 24px rgba(20, 50, 40, 0.08);
   --shadow-pop: 0 10px 30px rgba(20, 50, 40, 0.16);
-  --tap-min: 3rem;
-  --font-stack: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
-    "Noto Sans Devanagari", sans-serif;
 }
 
 /* 2. Base */
@@ -255,7 +282,7 @@ img {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(11, 18, 32, 0.95);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--color-border);
 }
@@ -448,12 +475,7 @@ img {
 
 /* 6. Hero */
 .hero {
-  background: linear-gradient(
-      180deg,
-      rgba(15, 138, 99, 0.08),
-      rgba(20, 103, 142, 0.04)
-    ),
-    var(--color-surface);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   padding: 3rem 0 3.5rem;
 }
@@ -1446,9 +1468,10 @@ img {
 
 /* 16. Footer */
 .footer {
-  background: var(--color-text);
-  color: #eaf4ef;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   margin-top: 2.5rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .footer__inner {
@@ -1461,7 +1484,7 @@ img {
 .footer__brand {
   font-weight: 800;
   font-size: 1.15rem;
-  color: #fff;
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -1475,7 +1498,7 @@ img {
 }
 
 .footer__links a {
-  color: #bfe6d7;
+  color: var(--color-text-muted);
   text-decoration: none;
 }
 
@@ -3578,7 +3601,7 @@ img {
 
 .inventory-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.9rem;
   margin-bottom: 1.25rem;
 }

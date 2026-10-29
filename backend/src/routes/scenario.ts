@@ -4,16 +4,29 @@ import {
   ScenarioError,
   simulateScenario,
 } from "../services/scenarioService.js";
+import { analyticsScope } from "../services/operationalData.js";
 
 const router = Router();
 
-router.post("/api/scenarios/simulate", analyticsAuth, async (req, res) => {
+router.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
+  next();
+});
 
+router.use(analyticsAuth);
+
+router.post("/api/scenarios/simulate", async (req, res) => {
   try {
     const { scenarioId } = req.body ?? {};
+    const user = req.analyticsUser!;
 
-    const results = await simulateScenario(scenarioId);
+    const results = await simulateScenario(
+      scenarioId,
+      undefined,
+      {
+        scope: analyticsScope(user.allHospitals, user.hospitalIds),
+      },
+    );
 
     res.status(200).json({
       success: true,

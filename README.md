@@ -25,6 +25,11 @@ Healthcare data → Prediction → Risk detection → Disruption simulation
 
 - [Signature feature — Resilience Scenario Engine](#signature-feature--resilience-scenario-engine)
 - [Feature highlights](#feature-highlights)
+  - [Hospital Intelligence](#hospital-intelligence)
+  - [Citizen Appointments & Digital Queue Tokens](#citizen-appointments--digital-queue-tokens)
+  - [Daily Inventory Reporting & Excel Batch Ingestion](#daily-inventory-reporting--excel-batch-ingestion)
+  - [Dynamic Multi-Facility Redistribution](#dynamic-multi-facility-redistribution)
+  - [Role-Based Hospital Scoping & Analytics Security](#role-based-hospital-scoping--analytics-security)
 - [Data provenance: real / derived / simulated](#data-provenance-real--derived--simulated)
 - [AI Copilot](#ai-copilot)
 - [Voice interaction](#voice-interaction)
@@ -137,6 +142,38 @@ Projects stock forward day-by-day against the forecast and flags:
 - projected stock-out and the day it happens
 - the day stock falls below the configured safety level
 - breach of the 1.5× safety-stock "watch" threshold
+
+### Citizen Appointments & Digital Queue Tokens
+
+A complete outpatient department (OPD) queue and appointment engine:
+
+- **Atomic sequential tokens:** Allocates sequential digital queue tokens (`T-001`, `T-002`) scoped per facility, department, and calendar date using PostgreSQL row locks.
+- **Private citizen snapshot API:** Authenticated endpoint (`GET /api/appointments/:id/queue-snapshot`) returning patient position, current serving token, and estimated wait times with zero cross-patient data exposure.
+- **Hospital-scoped staff queue operations:** Staff are restricted to their authorized facility IDs, managing calls, consultations, walk-in patient registrations, and no-shows.
+- **Rescheduling & cancellation integrity:** Same-day reschedules retain queue tokens; multi-day reschedules forfeit old tokens and allocate a fresh token for the target date. Cancelled tokens are never reused.
+
+### Daily Inventory Reporting & Excel Batch Ingestion
+
+Enables physical healthcare facilities to submit daily consumption and stock reports:
+
+- **Canonical template generator:** Generates downloadable Excel templates (`.xlsx`) with validation rules, unit constraints, and sample entries.
+- **Two-phase staging & preview:** Uploaded workbooks are parsed, validated against stock-conservation equations (`closing = opening + received - dispensed - written_off + adjustments`), deduplicated, and staged before commit.
+- **Segregation of synthetic vs. real data:** Enforces strict provenance flags (`imported-real` vs `imported-synthetic`) to prevent simulated testing figures from corrupting operational data.
+- **Transactional import commit:** Atomically merges staged rows into `public.inventory_daily_reports` using database RPC (`commit_inventory_import`).
+
+### Dynamic Multi-Facility Redistribution
+
+Upgrades scenario simulation to model operational inventory transfers during crises:
+
+- **Dynamic risk refresh:** When surplus stock from a donor hospital is transferred to alleviate a deficit, stock projections and risk bands (`GREEN / YELLOW / RED / CRITICAL`) are recomputed for both recipient and donor.
+- **Donor depletion guard:** Donors are never drained below their configured safety stock threshold.
+- **Actionable redistribution guidance:** Generates explicit donor and recipient operational action cards with exact post-transfer unit counts.
+
+### Role-Based Hospital Scoping & Analytics Security
+
+- **JWT Authentication:** Strict token verification via Supabase Auth for intelligence and scenario APIs.
+- **Hospital boundaries:** Staff users are bounded to their assigned hospital scopes via environment allowlists or trusted metadata.
+- **CORS whitelist & API hardening:** Explicit origin validation via `FRONTEND_ORIGINS`, removal of diagnostic database test dumps, `no-store` cache headers, and payload size bounds.
 
 ### Supplier intelligence
 
@@ -327,23 +364,28 @@ Verified from the repository (`package.json`, `requirements.txt`, source):
 Pulse AI/
 ├── README.md
 ├── docs/architecture.md
+├── docs/APPOINTMENTS_AND_DIGITAL_QUEUE_AUDIT_PHASE1.md
 ├── frontend/                    # React + TypeScript + Vite (port 5173)
 │   └── src/
-│       ├── pages/               # Dashboard, Intelligence, Hospitals, Assistant, …
+│       ├── pages/               # Dashboard, Intelligence, Hospitals, Assistant, Appointments, HospitalQueue …
 │       ├── data/                # synthetic hospitals, catalogs, i18n dictionaries
 │       ├── data/i18n/           # en, hi, mr, bn, ta, te, gu, kn, ml, pa
 │       ├── hooks/               # useSpeechRecognition / useSpeechSynthesis / …
-│       ├── api/                 # backend API clients + types
+│       ├── api/                 # backend API clients + types (scenarios, appointments)
 │       ├── context/             # LanguageContext, AuthContext, SimpleModeContext
-│       └── lib/                 # supabase client, auth helpers
+│       └── lib/                 # supabase client, auth helpers, API caller
 ├── backend/                     # Node.js + Express + TypeScript (port 4000)
 │   └── src/
-│       ├── routes/              # health, intelligence, scenario
+│       ├── routes/              # health, scenario, intelligence, appointments, inventoryImport
 │       ├── services/            # scenarioService, intelligenceService, mlForecast,
-│       │                        #   syntheticData
+│       │                        #   operationalData, appointmentService, inventoryImportService, syntheticData
+│       ├── repositories/        # appointmentRepository (in-memory & Supabase adapters)
+│       ├── middleware/          # analyticsAuth (JWT auth & hospital scoping)
 │       ├── data/catalog.ts      # demo medicine/hospital/supplier catalog
 │       ├── config/env.ts        # strict environment validation
 │       └── utils/supabase.ts    # service-role client
+├── supabase/
+│   └── migrations/              # PostgreSQL migrations (appointments, queue tokens, inventory imports)
 └── ml-service/                  # Python + FastAPI (port 8000)
     └── app/main.py              # health-check scaffold
 ```
@@ -352,17 +394,38 @@ Pulse AI/
 
 ## Backend API
 
+### Health & Intelligence
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Service health + environment |
-| GET | `/api/intelligence/summary` | Hospital-intelligence pipeline: inventory → demand → ML forecast → risk → recommendation → action |
-| POST | `/api/scenarios/simulate` | Run a disruption simulation (`{ scenarioId }`) and return per-item impact, risk, and recommendations |
+| GET | `/api/intelligence/summary` | Hospital-intelligence pipeline with 4-tier data provenance (`imported-real`, `imported-synthetic`, `legacy`, `synthetic`) |
+| POST | `/api/scenarios/simulate` | Disruption simulation with dynamic multi-hospital redistribution and donor risk updating |
 
-`GET /health` is public. The analytics endpoints require a valid Supabase
-session in the `Authorization: Bearer <access_token>` header. Browser CORS
-access is limited to the origins listed in `FRONTEND_ORIGINS`. Analytics
-currently use authenticated-session access; hospital-scoped roles must be
-defined and enforced before imported real records are exposed.
+### Citizen Appointments & Digital Queue
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/appointments/catalog` | Facility and department catalog for outpatient booking |
+| GET | `/api/appointments/slots` | Available future 30-minute booking slots |
+| POST | `/api/appointments` | Book outpatient appointment (auto-confirmed or doctor approval needed) |
+| GET | `/api/appointments/my` | Authenticated citizen appointment history |
+| GET | `/api/appointments/:id` | Authenticated appointment details |
+| POST | `/api/appointments/:id/reschedule` | Reschedule booking date/slot with token preservation rules |
+| POST | `/api/appointments/:id/cancel` | Cancel an eligible appointment |
+| POST | `/api/appointments/:id/check-in` | Same-day clinic check-in |
+| GET | `/api/appointments/:id/queue-snapshot` | Citizen private queue snapshot (digital token, serving token, wait estimate) |
+| GET | `/api/staff/appointments/queue` | Hospital-scoped staff queue for active departments |
+| POST | `/api/staff/appointments/:id/status` | Advance patient status (`calling`, `in_consultation`, `completed`, `no_show`) |
+| POST | `/api/staff/appointments/walk-in` | Register walk-in patient with sequential token allocation |
+
+### Inventory Ledger & Excel Batch Ingestion
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/staff/inventory/template` | Download canonical Excel inventory reporting template |
+| POST | `/api/staff/inventory/preview` | Upload and validate Excel report batch with staging and conflict checks |
+| POST | `/api/staff/inventory/commit` | Two-phase commit staged reports into `public.inventory_daily_reports` |
+| GET | `/api/staff/inventory/batches` | View past uploaded import batches |
+| GET | `/api/staff/inventory/batches/:id` | View batch status, replacement count, and imported items |
+| GET | `/api/staff/inventory/summary` | Staff-scoped summary of latest inventory reports across facilities |
 
 The frontend calls `http://localhost:4000` for these endpoints. The Python
 `ml-service` currently exposes only `GET /health`; it is reserved for future
@@ -373,8 +436,7 @@ model hosting.
 ## Database (Supabase)
 
 PostgreSQL is accessed only through the backend service-role client. The
-services use the following tables (the repo contains no committed SQL
-migrations — the schema lives in the Supabase project; an expected-schema
+services use the following tables (committed SQL migrations live in `supabase/migrations/`; an expected-schema
 reference and seed are provided in [Supabase setup & seed](#supabase-setup--seed)):
 
 | Table | Purpose | Key columns used by the code |
@@ -515,7 +577,8 @@ Never commit real `.env` files (`.gitignore` covers them).
 | Service | File | Required now | Notes |
 |---|---|---|---|
 | `frontend/.env` | `frontend/.env.example` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | used by Supabase auth; `VITE_API_BASE_URL` optional |
-| `backend/.env` | `backend/.env.example` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role client; backend refuses to start without them. `FRONTEND_ORIGINS` is optional and defaults to `http://localhost:5173` |
+| `backend/.env` | `backend/.env.example` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role client; backend refuses to start without them |
+| `backend/.env` | `backend/.env.example` | Optional: `FRONTEND_ORIGINS`, `APPOINTMENT_STAFF_USER_IDS`, `INVENTORY_STAFF_USER_IDS` | explicit CORS origins and staff allowlists; never commit real values |
 | `ml-service/.env` | `ml-service/.env.example` | none | metadata only (`SERVICE_NAME`, `SERVICE_VERSION`, `APP_ENV`) |
 
 ---
@@ -529,6 +592,42 @@ Never commit real `.env` files (`.gitignore` covers them).
 3. Optionally seed `scenarios` (the Dashboard uses ids 1–5) and populate
    `inventory` / `demand_history`; when those are empty the pipeline uses its
    synthetic fallback and labels it.
+
+### Apply SQL migrations
+
+Run the files in `supabase/migrations/` in filename order against the intended
+Supabase project, using the Supabase CLI or SQL editor. They are not applied
+automatically by either app.
+
+- `20261026000200_inventory_import.sql` creates
+  `inventory_import_batches` and `inventory_daily_reports`, enables RLS,
+  revokes direct `anon`/`authenticated` access, grants `service_role`, and
+  creates the `commit_inventory_import(uuid, uuid)` RPC.
+- The inventory migration depends on existing `hospitals(id)` and
+  `medicines(id)` tables with `bigint` IDs and on Supabase Auth users.
+- Do not apply it to a production project without reviewing ownership,
+  backups, and the intended data environment.
+
+### Staff access configuration
+
+- `INVENTORY_STAFF_USER_IDS` is a backend-only comma/space/semicolon-separated
+  list of Supabase user IDs. Listed users get inventory access for **all**
+  hospitals.
+- For hospital-scoped staff, leave the allowlist unset and set trusted
+  Supabase **app metadata** on the user:
+
+```json
+{
+  "inventory_staff": true,
+  "inventory_hospital_ids": [1, 2]
+}
+```
+
+- `APPOINTMENT_STAFF_USER_IDS` works the same way for the staff appointment
+  queue. `app_metadata.appointment_staff = true` or
+  `app_metadata.role = "appointment_staff"` is also accepted.
+- Set these values only in the backend environment. Never put service-role
+  keys or staff allowlists in frontend environment files.
 
 Expected schema (reference only — adapt names/types to your project):
 
@@ -603,10 +702,12 @@ the database through the backend client.
 | frontend | `npm run dev` | Vite dev server (port 5173) |
 | frontend | `npm run build` | `tsc --noEmit` typecheck + production build |
 | frontend | `npm run preview` | Serve the built app |
+| frontend | `npm test` | Run component and routing unit tests (21 tests) |
 | backend | `npm run dev` | `tsx watch` dev server (port 4000) |
 | backend | `npm run build` | Compile TypeScript to `dist/` |
 | backend | `npm run start` | Run the compiled build |
-| backend | `npm run typecheck` | `tsc --noEmit` |
+| backend | `npm run typecheck` | `tsc --noEmit` typecheck |
+| backend | `npm test` | Run complete test suite (79 tests covering queues, scenarios, forecasting, imports) |
 | ml-service | `python -m uvicorn ...` | FastAPI dev server (port 8000) |
 
 ---

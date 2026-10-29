@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "./context/LanguageContext";
-import { SimpleModeProvider } from "./context/SimpleModeContext";
 import Layout from "./components/Layout";
 import PortalLayout from "./components/PortalLayout";
 import LegacyRedirect from "./components/LegacyRedirect";
@@ -32,9 +31,8 @@ import {
 export default function App() {
   return (
     <LanguageProvider>
-      <SimpleModeProvider>
-        <BrowserRouter>
-          <Routes>
+      <BrowserRouter>
+        <Routes>
             <Route element={<Layout />}>
               <Route path={ROUTES.home} element={<LandingPage />} />
               <Route path={ROUTES.login} element={<LoginPage />} />
@@ -147,7 +145,6 @@ export default function App() {
             />
           </Routes>
         </BrowserRouter>
-      </SimpleModeProvider>
     </LanguageProvider>
   );
 }

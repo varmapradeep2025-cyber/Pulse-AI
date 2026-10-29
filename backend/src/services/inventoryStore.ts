@@ -34,6 +34,27 @@ interface SupabaseError {
   message?: string;
 }
 
+function isMissingSchema(error: SupabaseError | null | undefined): boolean {
+  return Boolean(
+    error &&
+      ((error.code && MISSING_SCHEMA_CODES.has(error.code)) ||
+        error.message?.includes("does not exist") ||
+        error.message?.includes("Could not find the table")),
+  );
+}
+
+function emptyLedgerSummary(storageReady: boolean): InventoryLedgerSummary {
+  return {
+    storageReady,
+    latestReal: null,
+    latestSynthetic: null,
+    realRowCount: 0,
+    syntheticRowCount: 0,
+    recentBatches: [],
+    active: null,
+  };
+}
+
 function throwStoreError(error: SupabaseError, operation: string): never {
   if (
     error.code &&
@@ -376,13 +397,7 @@ class SupabaseInventoryStore implements InventoryStore {
     const scoped = !scope.allHospitals;
 
     if (scoped && scope.hospitalIds.length === 0) {
-      return {
-        latestReal: null,
-        latestSynthetic: null,
-        realRowCount: 0,
-        syntheticRowCount: 0,
-        recentBatches: [],
-      };
+      return emptyLedgerSummary(true);
     }
 
     let latestRealQuery = supabase
@@ -440,19 +455,26 @@ class SupabaseInventoryStore implements InventoryStore {
         recentQuery,
       ]);
 
-    for (const result of [
+    const results = [
       latestReal,
       latestSynthetic,
       realCount,
       syntheticCount,
       recent,
-    ]) {
+    ];
+
+    if (results.some((result) => isMissingSchema(result.error))) {
+      return emptyLedgerSummary(false);
+    }
+
+    for (const result of results) {
       if (result.error) {
         throwStoreError(result.error, "ledger summary");
       }
     }
 
     return {
+      storageReady: true,
       latestReal: latestReal.data?.report_date
         ? {
             reportDate: String(latestReal.data.report_date),
@@ -470,6 +492,7 @@ class SupabaseInventoryStore implements InventoryStore {
       recentBatches: (recent.data ?? []).map((row) =>
         toBatchSummary(row as unknown as Record<string, unknown>),
       ),
+      active: null,
     };
   }
 }

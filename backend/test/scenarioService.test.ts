@@ -250,6 +250,60 @@ test("scenario summary reflects post-redistribution shortage and risk results", 
   }
 });
 
+test("compares each result with a same-window no-disruption baseline", async () => {
+  const result = await simulateScenario(3, provider());
+  const item = result.results[0];
+
+  assert.equal(item.baseline.daily_demand, item.predicted_daily_demand);
+  assert.equal(
+    item.baseline.projected_demand,
+    Number(
+      (item.baseline.daily_demand * item.disruption_window_days).toFixed(2),
+    ),
+  );
+  assert.ok(item.baseline.projected_remaining_stock >= 0);
+  assert.ok(item.impact_vs_baseline.additional_demand >= 0);
+
+  const baselineShortage = result.results.reduce(
+    (total, entry) => total + entry.baseline.estimated_shortage_quantity,
+    0,
+  );
+
+  assert.equal(
+    result.scenario.baseline.projected_shortage_total,
+    Number(baselineShortage.toFixed(2)),
+  );
+  assert.equal(
+    result.scenario.impact_vs_baseline.additional_projected_shortage,
+    Number(
+      (
+        result.scenario.projected_shortage_total -
+        result.scenario.baseline.projected_shortage_total
+      ).toFixed(2),
+    ),
+  );
+});
+
+test("all five default scenarios include baseline comparisons", async () => {
+  for (const scenarioId of [1, 2, 3, 4, 5]) {
+    const result = await simulateScenario(
+      scenarioId,
+      provider({ loadScenario: async () => null }),
+    );
+
+    assert.ok(result.results.length > 0);
+    assert.ok(Number.isFinite(result.scenario.baseline.projected_shortage_total));
+    assert.ok(Number.isFinite(result.scenario.impact_vs_baseline.additional_projected_shortage));
+
+    for (const item of result.results) {
+      assert.ok(Number.isFinite(item.baseline.daily_demand));
+      assert.ok(Number.isFinite(item.baseline.projected_demand));
+      assert.ok(item.baseline.projected_remaining_stock >= 0);
+      assert.ok(Number.isFinite(item.impact_vs_baseline.additional_demand));
+    }
+  }
+});
+
 test("response keeps the fields consumed by the frontend", async () => {
   const result = await simulateScenario(2, provider());
   const { success, results } = {

@@ -21,10 +21,30 @@ export interface RawInventoryRow {
 }
 
 export interface ParsedInventoryWorkbook {
+  sheetName?: string;
   headers: string[];
   rows: RawInventoryRow[];
   fileErrors: InventoryIssue[];
   fileWarnings: InventoryIssue[];
+}
+
+export interface ParseInventoryWorkbookOptions {
+  sheetName?: string;
+}
+
+function worksheetHeaders(worksheet: ExcelJS.Worksheet): string[] {
+  const columnCount = Math.max(
+    worksheet.columnCount,
+    worksheet.getRow(1).cellCount,
+  );
+  const headerRow = worksheet.getRow(1);
+  const headers: string[] = [];
+
+  for (let column = 1; column <= columnCount; column++) {
+    headers.push(normalizeHeader(cellValue(headerRow.getCell(column).value)));
+  }
+
+  return headers;
 }
 
 export interface InventoryValidationOptions {
@@ -370,6 +390,7 @@ function rowKey(
 
 export async function parseInventoryWorkbook(
   buffer: Buffer,
+  options: ParseInventoryWorkbookOptions = {},
 ): Promise<ParsedInventoryWorkbook> {
   const fileErrors: InventoryIssue[] = [];
   const fileWarnings: InventoryIssue[] = [];
@@ -422,7 +443,64 @@ export async function parseInventoryWorkbook(
     };
   }
 
-  const worksheet = workbook.worksheets[0];
+  if (workbook.worksheets.length === 0) {
+    return {
+      headers: [],
+      rows: [],
+      fileErrors: [
+        issue("NO_WORKSHEET", "error", "The workbook has no worksheet."),
+      ],
+      fileWarnings,
+    };
+  }
+
+  const requestedSheet = options.sheetName?.trim();
+  let worksheet: ExcelJS.Worksheet | undefined;
+
+  if (requestedSheet) {
+    worksheet = workbook.worksheets.find(
+      (candidate) =>
+        candidate.name.toLowerCase() === requestedSheet.toLowerCase(),
+    );
+
+    if (!worksheet) {
+      return {
+        headers: [],
+        rows: [],
+        fileErrors: [
+          issue(
+            "SHEET_NOT_FOUND",
+            "error",
+            `Worksheet "${requestedSheet}" was not found. Available sheets: ${workbook.worksheets
+              .map((candidate) => candidate.name)
+              .join(", ")}.`,
+          ),
+        ],
+        fileWarnings,
+      };
+    }
+  } else {
+    worksheet = workbook.worksheets.find((candidate) => {
+      const candidateHeaders = worksheetHeaders(candidate);
+      const candidateColumns = new Set(candidateHeaders);
+
+      return INVENTORY_REQUIRED_COLUMNS.every((column) =>
+        candidateColumns.has(column),
+      );
+    });
+
+    if (!worksheet) {
+      worksheet = workbook.worksheets[0];
+    } else if (worksheet !== workbook.worksheets[0]) {
+      fileWarnings.push(
+        issue(
+          "SHEET_SELECTED_AUTOMATICALLY",
+          "warning",
+          `Using worksheet "${worksheet.name}" because it contains the required inventory columns.`,
+        ),
+      );
+    }
+  }
 
   if (!worksheet) {
     return {
@@ -435,23 +513,12 @@ export async function parseInventoryWorkbook(
     };
   }
 
-  const columnCount = Math.max(
-    worksheet.columnCount,
-    worksheet.getRow(1).cellCount,
-  );
-  const headerRow = worksheet.getRow(1);
-  const headers: string[] = [];
-  const headerKeys: string[] = [];
-
-  for (let column = 1; column <= columnCount; column++) {
-    const header = normalizeHeader(cellValue(headerRow.getCell(column).value));
-
-    headers.push(header);
-    headerKeys.push(header);
-  }
+  const headers = worksheetHeaders(worksheet);
+  const headerKeys = [...headers];
 
   if (headerKeys.every((header) => header === "")) {
     return {
+      sheetName: worksheet.name,
       headers: [],
       rows: [],
       fileErrors: [
@@ -512,7 +579,7 @@ export async function parseInventoryWorkbook(
   }
 
   if (fileErrors.length > 0) {
-    return { headers, rows: [], fileErrors, fileWarnings };
+    return { sheetName: worksheet.name, headers, rows: [], fileErrors, fileWarnings };
   }
 
   const rows: RawInventoryRow[] = [];
@@ -566,7 +633,7 @@ export async function parseInventoryWorkbook(
     );
   }
 
-  return { headers, rows, fileErrors, fileWarnings };
+  return { sheetName: worksheet.name, headers, rows, fileErrors, fileWarnings };
 }
 
 export function validateInventoryRows(

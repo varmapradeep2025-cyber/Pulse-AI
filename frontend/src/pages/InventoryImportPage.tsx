@@ -141,6 +141,17 @@ function SummaryCards({ summary }: { summary: InventoryLedgerSummary }) {
         <strong>{summary.recentBatches.length}</strong>
         <small>Review-only batches shown below</small>
       </div>
+      <div className="inventory-summary-card">
+        <span>Scenarios are using</span>
+        <strong>
+          {summary.active ? summary.active.kind : "No active source"}
+        </strong>
+        <small>
+          {summary.active
+            ? `${summary.active.rowCount} stock rows · ${summary.active.stockoutRows} stock-outs · snapshot ${formatDate(summary.active.snapshotDate)}`
+            : "Run an import or seed legacy inventory data."}
+        </small>
+      </div>
     </div>
   );
 }

@@ -5,13 +5,15 @@
  * supply-chain catalog (backend/src/data/catalog.ts).
  */
 
-import { supabase } from "../lib/supabase";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+import { API_BASE_URL, accessToken } from "../lib/api";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RiskLabel = "GREEN" | "YELLOW" | "RED" | "CRITICAL";
+export type DataProvenance =
+  | "imported-real"
+  | "imported-synthetic"
+  | "legacy"
+  | "synthetic";
 
 export type SimulationDay = {
   day: number;
@@ -74,6 +76,24 @@ export type RedistributionTransfer = {
   transfer_units: number;
 };
 
+export type BaselineProjection = {
+  daily_demand: number;
+  projected_demand: number;
+  projected_remaining_stock: number;
+  days_of_stock_remaining: number | null;
+  stock_out_day: number | null;
+  safety_stock_breach: boolean;
+  estimated_shortage_quantity: number;
+  risk_label: RiskLabel;
+};
+
+export type BaselineImpact = {
+  additional_demand: number;
+  projected_stock_delta: number;
+  additional_shortage: number;
+  stock_out_day_shift: number | null;
+};
+
 export type SimulationResult = {
   /* Legacy fields (kept for the existing result cards). */
   hospital_id: number;
@@ -103,6 +123,10 @@ export type SimulationResult = {
   days_of_stock_remaining: number;
   safety_stock_breach: boolean;
   estimated_shortage_quantity: number;
+
+  /* Same-window, no-disruption reference (before redistribution). */
+  baseline: BaselineProjection;
+  impact_vs_baseline: BaselineImpact;
 
   /* Risk (transparent). */
   risk_label: RiskLabel;
@@ -142,6 +166,17 @@ export type ScenarioSummary = {
   projected_shortage_total: number;
   worst_risk_label: RiskLabel;
   result_counts: Record<RiskLabel, number>;
+  baseline: {
+    projected_shortage_total: number;
+    worst_risk_label: RiskLabel;
+    result_counts: Record<RiskLabel, number>;
+  };
+  impact_vs_baseline: {
+    additional_projected_shortage: number;
+    additional_stockout_items: number;
+    items_with_lower_projected_stock: number;
+    items_with_higher_risk: number;
+  };
   assumptions: string[];
 };
 
@@ -152,17 +187,15 @@ export type ScenarioResponse = {
   model: ModelInfo;
   results: SimulationResult[];
   source: ScenarioDataSource;
+  dataProvenance?: DataProvenance;
 };
 
 export async function runScenarioSimulation(
   scenarioId: number,
 ): Promise<ScenarioResponse> {
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.getSession();
+  const token = await accessToken();
 
-  const token = sessionData.session?.access_token;
-
-  if (sessionError || !token) {
+  if (!token) {
     throw new Error("Your session is invalid or has expired. Sign in again.");
   }
 
@@ -191,17 +224,13 @@ export async function runScenarioSimulation(
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Simulation failed: ${response.status}`,
-    );
+    throw new Error(`Simulation failed: ${response.status}`);
   }
 
   const data = await response.json();
 
   if (!data.success) {
-    throw new Error(
-      data.message ?? "Simulation failed",
-    );
+    throw new Error(data.message ?? "Simulation failed");
   }
 
   return data.results;

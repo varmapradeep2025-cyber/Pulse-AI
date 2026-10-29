@@ -14,7 +14,7 @@
  * reading from Supabase. Nothing here is medical advice.
  */
 
-import { supabase } from "../lib/supabase";
+import { API_BASE_URL, accessToken, authHeaders } from "../lib/api";
 import {
   addDaysUtc,
   buildBaseFeatures,
@@ -27,6 +27,11 @@ import type { DemandPoint, ForecastPoint } from "./forecastFeatures";
 export type { DemandPoint, ForecastPoint } from "./forecastFeatures";
 
 export type RiskLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+export type DataProvenance =
+  | "imported-real"
+  | "imported-synthetic"
+  | "legacy"
+  | "synthetic";
 
 export interface SeriesForecast {
   priority: number;
@@ -50,6 +55,8 @@ export interface SeriesForecast {
 export interface IntelligenceSummary {
   generatedAt: string;
   source: "supabase" | "synthetic-fallback" | "local";
+  provenance: DataProvenance;
+  dataAsOf: string | null;
   hospitals: { id: number; name: string }[];
   medicines: {
     id: number;
@@ -71,27 +78,20 @@ export interface IntelligenceSummary {
   online: boolean;
 }
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
-
 class IntelligenceAuthError extends Error {
   constructor() {
     super("Your session is invalid or has expired. Sign in again.");
     this.name = "IntelligenceAuthError";
   }
 }
-
 /* ------------------------------------------------------------------ */
 /* Online: backend ML engine with offline fallback                     */
 /* ------------------------------------------------------------------ */
 
 export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.getSession();
+  const token = await accessToken();
 
-  const token = sessionData.session?.access_token;
-
-  if (sessionError || !token) {
+  if (!token) {
     throw new IntelligenceAuthError();
   }
 
@@ -101,11 +101,9 @@ export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/intelligence/summary`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       cache: "no-store",
       signal: controller.signal,
+      headers: await authHeaders(),
     });
 
     if (response.status === 401) {
@@ -229,7 +227,7 @@ async function buildLocalSummary(): Promise<Omit<IntelligenceSummary, "online">>
   const inventory: LocalInventory[] = [];
   const demandRows: Array<{ hospitalId: number; medicineId: number; point: DemandPoint }> = [];
 
-  const end = new Date(2026, 8, 22);
+  const end = new Date(Date.UTC(2026, 8, 22));
 
   const seriesMap = new Map<string, DemandPoint[]>();
 
@@ -262,11 +260,11 @@ async function buildLocalSummary(): Promise<Omit<IntelligenceSummary, "online">>
       for (let dayOffset = 364; dayOffset >= 0; dayOffset--) {
         const date = new Date(end);
 
-        date.setDate(date.getDate() - dayOffset);
+        date.setUTCDate(date.getUTCDate() - dayOffset);
 
-        const weekday = date.getDay();
+        const weekday = date.getUTCDay();
 
-        const month = date.getMonth();
+        const month = date.getUTCMonth();
 
         const seasonal = 1 + 0.18 * Math.sin((2 * Math.PI * month) / 12 + 0.6);
 
@@ -741,6 +739,15 @@ function forecastFromData(
   return {
     generatedAt: new Date().toISOString(),
     source: "local",
+    provenance: "synthetic",
+    dataAsOf:
+      demandRows.length > 0
+        ? demandRows.reduce(
+            (latest, row) =>
+              row.point.date > latest ? row.point.date : latest,
+            demandRows[0].point.date,
+          )
+        : null,
     hospitals,
     medicines,
     model: {

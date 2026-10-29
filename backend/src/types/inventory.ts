@@ -1,3 +1,5 @@
+import type { InventoryDatasetSummary } from "./inventoryDataset.js";
+
 export type InventoryDatasetKind = "synthetic" | "real";
 export type InventoryCorrectionMode = "reject" | "replace";
 export type InventoryBatchStatus = "previewed" | "imported" | "rejected";
@@ -84,6 +86,7 @@ export interface InventoryPreview {
   fileName: string;
   fileHash: string;
   datasetKind: InventoryDatasetKind;
+  sheetName?: string;
   correctionMode: InventoryCorrectionMode;
   status: InventoryBatchStatus;
   reportingPeriodStart: string | null;
@@ -137,11 +140,13 @@ export interface InventoryLatestReport {
 }
 
 export interface InventoryLedgerSummary {
+  storageReady: boolean;
   latestReal: InventoryLatestReport | null;
   latestSynthetic: InventoryLatestReport | null;
   realRowCount: number;
   syntheticRowCount: number;
   recentBatches: InventoryBatchSummary[];
+  active: InventoryDatasetSummary | null;
 }
 
 export interface InventoryReferenceHospital {

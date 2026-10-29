@@ -1,17 +1,66 @@
 import type { NextFunction, Request, Response } from "express";
+import {
+  hasInventoryHospitalScope,
+  resolveInventoryUser,
+} from "../services/inventoryAccess.js";
+import type { AnalyticsUser } from "../types/analytics.js";
 
-type AccessTokenVerifier = (token: string) => Promise<string | null>;
+type VerifiedAnalyticsUser = string | AnalyticsUser | null;
+type AccessTokenVerifier = (token: string) => Promise<VerifiedAnalyticsUser>;
 
-async function verifyWithSupabase(token: string): Promise<string | null> {
-  const { supabase } = await import("../utils/supabase.js");
-
+async function verifyWithSupabase(
+  token: string,
+): Promise<AnalyticsUser | null> {
+  const [{ env }, { supabase }] = await Promise.all([
+    import("../config/env.js"),
+    import("../utils/supabase.js"),
+  ]);
+  const allowedUserIds = new Set(env.INVENTORY_STAFF_USER_IDS);
   const { data, error } = await supabase.auth.getUser(token);
 
-  if (error || !data.user?.id) {
+  if (error || !data.user) {
     return null;
   }
 
-  return data.user.id;
+  const inventoryUser = resolveInventoryUser(
+    {
+      sub: data.user.id,
+      email: data.user.email,
+      app_metadata: data.user.app_metadata ?? {},
+    },
+    allowedUserIds,
+  );
+
+  if (!inventoryUser) {
+    return null;
+  }
+
+  const scoped = hasInventoryHospitalScope(inventoryUser);
+
+  return {
+    id: inventoryUser.id,
+    email: inventoryUser.email,
+    isStaff: inventoryUser.isStaff,
+    hospitalIds: scoped ? [...inventoryUser.hospitalIds] : [],
+    allHospitals: !scoped || inventoryUser.allHospitals,
+  };
+}
+
+function normalizeVerifiedUser(
+  verified: VerifiedAnalyticsUser,
+): AnalyticsUser | null {
+  if (typeof verified === "string") {
+    return verified.trim()
+      ? {
+          id: verified,
+          isStaff: false,
+          hospitalIds: [],
+          allHospitals: true,
+        }
+      : null;
+  }
+
+  return verified;
 }
 
 export function createAnalyticsAuth(
@@ -45,9 +94,9 @@ export function createAnalyticsAuth(
     }
 
     try {
-      const userId = await verifyAccessToken(token);
+      const user = normalizeVerifiedUser(await verifyAccessToken(token));
 
-      if (!userId) {
+      if (!user) {
         res.status(401).json({
           success: false,
           code: "INVALID_SESSION",
@@ -56,6 +105,17 @@ export function createAnalyticsAuth(
         return;
       }
 
+      if (user.isStaff && !hasInventoryHospitalScope(user)) {
+        res.status(403).json({
+          success: false,
+          code: "ANALYTICS_HOSPITAL_SCOPE_REQUIRED",
+          message:
+            "Analytics hospital access is not configured for this account. Ask an administrator to assign one or more hospital IDs.",
+        });
+        return;
+      }
+
+      req.analyticsUser = user;
       next();
     } catch (error) {
       console.error(

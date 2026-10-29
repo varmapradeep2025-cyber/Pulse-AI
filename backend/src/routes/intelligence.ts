@@ -1,8 +1,16 @@
 import { Router } from "express";
 import { analyticsAuth } from "../middleware/analyticsAuth.js";
 import { buildIntelligenceSummary } from "../services/intelligenceService.js";
+import { analyticsScope } from "../services/operationalData.js";
 
 const router = Router();
+
+router.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
+router.use(analyticsAuth);
 
 /*
  * GET /api/intelligence/summary
@@ -10,14 +18,15 @@ const router = Router();
  * Hospital-intelligence pipeline:
  *   inventory → demand history → ML forecast → risk → recommendation → action
  *
- * Uses Supabase data when available; falls back to a deterministic synthetic
- * dataset when the database is empty so the demo never needs manual setup.
+ * Imported inventory reports are preferred, then legacy inventory/demand
+ * tables, then a deterministic synthetic dataset.
  */
-router.get("/api/intelligence/summary", analyticsAuth, async (_req, res) => {
-  res.set("Cache-Control", "no-store");
-
+router.get("/api/intelligence/summary", async (req, res) => {
   try {
-    const summary = await buildIntelligenceSummary();
+    const user = req.analyticsUser!;
+    const summary = await buildIntelligenceSummary(
+      analyticsScope(user.allHospitals, user.hospitalIds),
+    );
 
     res.status(200).json({
       success: true,
@@ -26,9 +35,10 @@ router.get("/api/intelligence/summary", analyticsAuth, async (_req, res) => {
   } catch (error) {
     console.error("Intelligence summary error:", error);
 
-    res.status(500).json({
+    res.status(503).json({
       success: false,
-      message: "Intelligence summary failed",
+      code: "INTELLIGENCE_UNAVAILABLE",
+      message: "Intelligence summary is temporarily unavailable.",
     });
   }
 });

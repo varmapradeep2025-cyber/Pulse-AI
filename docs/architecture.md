@@ -45,13 +45,20 @@ All configurable values are read from environment variables at runtime.
 Template files (`.env.example`) exist in each service directory; copy them to
 `.env` locally. Never commit real `.env` files.
 
-Reserved variable names for future use:
+Current variable names:
 
-- `frontend/`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`
-- `backend/`: `PORT`, `HOST`, `NODE_ENV`, plus future `SUPABASE_URL`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `ML_SERVICE_URL`
+- `frontend/`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
+  `VITE_API_BASE_URL`
+- `backend/`: `PORT`, `HOST`, `NODE_ENV`, `SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `FRONTEND_ORIGINS`,
+  `APPOINTMENT_STAFF_USER_IDS`, `INVENTORY_STAFF_USER_IDS`, `ML_SERVICE_URL`
 - `ml-service/`: `APP_ENV`, `SERVICE_NAME`, `SERVICE_VERSION`, future model/API
   keys
+
+`INVENTORY_STAFF_USER_IDS` grants full inventory access to the listed Supabase
+user IDs. Prefer hospital-scoped `app_metadata.inventory_staff = true` plus
+`app_metadata.inventory_hospital_ids = [1, 2]` for staff who should only see
+assigned facilities.
 
 ## Current endpoint surface
 
