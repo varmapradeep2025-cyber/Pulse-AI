@@ -1,6 +1,9 @@
 import type { CorsOptions } from "cors";
 
-export const DEFAULT_FRONTEND_ORIGINS = ["http://localhost:5173"] as const;
+export const DEFAULT_FRONTEND_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+] as const;
 
 export function parseFrontendOrigins(raw: string | undefined): string[] {
   const origins = (raw ?? "")
@@ -33,7 +36,7 @@ export function createCorsOptions(
     origin(origin, callback) {
       callback(null, isFrontendOriginAllowed(origin, allowedOrigins));
     },
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type"],
     maxAge: 86_400,
   };

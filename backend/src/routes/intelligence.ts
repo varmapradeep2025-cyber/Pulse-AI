@@ -10,7 +10,7 @@ router.use((_req, res, next) => {
   next();
 });
 
-router.use(analyticsAuth);
+router.use("/api/intelligence", analyticsAuth);
 
 /*
  * GET /api/intelligence/summary
