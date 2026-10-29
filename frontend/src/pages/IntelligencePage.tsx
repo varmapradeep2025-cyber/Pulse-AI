@@ -23,11 +23,11 @@ function formatNumber(value: number): string {
   return Number.isFinite(value) ? String(value) : "—";
 }
 
-function metricCard(label: string, value: string, sub?: string) {
+function metricCard(label: string, value: string, sub?: string, isHighlight?: boolean) {
   return (
     <div className="intel-metric">
       <div className="intel-metric__label">{label}</div>
-      <div className="intel-metric__value">{value}</div>
+      <div className={`intel-metric__value${isHighlight ? " intel-metric__value--highlight" : ""}`}>{value}</div>
       {sub && <div className="intel-metric__sub">{sub}</div>}
     </div>
   );
@@ -233,6 +233,7 @@ export default function IntelligencePage() {
             "Improvement",
             improvement > 0 ? `${improvement.toFixed(1)}%` : "no gain",
             improvement > 0 ? "lower error vs Phase-1" : "within noise of baseline",
+            improvement > 0,
           )}
           {metricCard("RMSE", formatNumber(summary.model.ml.rmse))}
           {metricCard("MAPE", `${formatNumber(summary.model.ml.mape)}%`)}

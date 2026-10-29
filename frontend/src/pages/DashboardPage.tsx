@@ -94,11 +94,12 @@ function scenarioDataLabel(response: ScenarioResponse): string {
 }
 
 const frameStyle = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--color-border)",
   borderRadius: "10px",
   padding: "12px",
   marginTop: "10px",
-  background: "#fafafa",
+  background: "var(--color-surface-soft)",
+  color: "var(--color-text)",
 } as const;
 
 const frameHeading = {
@@ -106,7 +107,7 @@ const frameHeading = {
   fontSize: "13px",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
-  color: "#6b7280",
+  color: "var(--color-text-muted)",
 } as const;
 
 export default function DashboardPage() {
@@ -226,15 +227,15 @@ export default function DashboardPage() {
         style={{
           marginTop: "40px",
           padding: "24px",
-          border: "1px solid #ddd",
+          border: "1px solid var(--color-border)",
           borderRadius: "12px",
-          background: "#fff",
+          background: "var(--color-surface)",
         }}
       >
         <h2 className="dashboard__section-title">
           Hospital Intelligence
         </h2>
-        <p style={{ color: "#555", marginTop: 0 }}>
+        <p style={{ color: "var(--color-text-muted)", marginTop: 0 }}>
           The ML demand forecast identifies which hospital and medicine stock
           needs attention first — with a recommended action for each item.
         </p>
@@ -255,9 +256,9 @@ export default function DashboardPage() {
         <div
           style={{
             padding: "24px",
-            border: "1px solid #ddd",
+            border: "1px solid var(--color-border)",
             borderRadius: "12px",
-            background: "#fff",
+            background: "var(--color-surface)",
           }}
         >
           <div
@@ -378,8 +379,8 @@ export default function DashboardPage() {
                 style={{
                   padding: "16px",
                   borderRadius: "10px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--color-surface-soft)",
+                  border: "1px solid var(--color-border)",
                   fontSize: "14px",
                 }}
               >
@@ -452,7 +453,7 @@ export default function DashboardPage() {
                       padding: "4px 10px",
                       borderRadius: "999px",
                       fontSize: "13px",
-                      border: "1px solid #e2e8f0",
+                      border: "1px solid var(--color-border)",
                     }}
                   >
                     Projected shortage:{" "}
@@ -534,7 +535,7 @@ export default function DashboardPage() {
                           style={{
                             fontSize: "13px",
                             fontWeight: 400,
-                            color: "#6b7280",
+                            color: "var(--color-text-muted)",
                             marginLeft: "10px",
                           }}
                         >
@@ -588,9 +589,9 @@ function ResultCard({ result }: { result: SimulationResult }) {
     <div
       style={{
         padding: "20px",
-        border: "1px solid #ddd",
+        border: "1px solid var(--color-border)",
         borderRadius: "12px",
-        background: "#fff",
+        background: "var(--color-surface)",
         minWidth: "280px",
       }}
     >
@@ -708,13 +709,13 @@ function ResultCard({ result }: { result: SimulationResult }) {
 
       {/* ================= PULSE AI RESPONSE ================= */}
 
-      <div style={{ ...frameStyle, background: "#f0f9ff" }}>
-        <p style={{ ...frameHeading, color: "#0369a1" }}>
+      <div style={{ ...frameStyle, background: "var(--color-primary-soft)" }}>
+        <p style={{ ...frameHeading, color: "var(--color-primary)" }}>
           Pulse AI Response
         </p>
 
         {result.recommendations.length === 0 && (
-          <p style={{ margin: 0, fontSize: "13px", color: "#475569" }}>
+          <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-muted)" }}>
             No action needed beyond routine monitoring.
           </p>
         )}

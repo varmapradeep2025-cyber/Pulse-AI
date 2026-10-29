@@ -38,8 +38,8 @@ export default function HospitalDetailsPage() {
 
       <section
         style={{
-          background: "#fff",
-          border: "1px solid #ddd",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
           borderRadius: "16px",
           padding: "28px",
         }}
