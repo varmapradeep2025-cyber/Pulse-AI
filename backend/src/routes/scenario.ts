@@ -13,9 +13,9 @@ router.use((_req, res, next) => {
   next();
 });
 
-router.use("/api/scenarios", analyticsAuth);
-
-router.post("/api/scenarios/simulate", async (req, res) => {
+// analyticsAuth is applied per-route so it does NOT intercept requests
+// destined for other routers (e.g. /api/appointments).
+router.post("/api/scenarios/simulate", analyticsAuth, async (req, res) => {
   try {
     const { scenarioId } = req.body ?? {};
     const user = req.analyticsUser!;

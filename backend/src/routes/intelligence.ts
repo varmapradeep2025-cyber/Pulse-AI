@@ -10,8 +10,6 @@ router.use((_req, res, next) => {
   next();
 });
 
-router.use("/api/intelligence", analyticsAuth);
-
 /*
  * GET /api/intelligence/summary
  *
@@ -20,8 +18,11 @@ router.use("/api/intelligence", analyticsAuth);
  *
  * Imported inventory reports are preferred, then legacy inventory/demand
  * tables, then a deterministic synthetic dataset.
+ *
+ * analyticsAuth is applied per-route so it does NOT intercept requests
+ * destined for other routers (e.g. /api/appointments).
  */
-router.get("/api/intelligence/summary", async (req, res) => {
+router.get("/api/intelligence/summary", analyticsAuth, async (req, res) => {
   try {
     const user = req.analyticsUser!;
     const summary = await buildIntelligenceSummary(
