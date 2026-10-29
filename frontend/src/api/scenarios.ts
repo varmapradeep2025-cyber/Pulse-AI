@@ -5,10 +5,15 @@
  * supply-chain catalog (backend/src/data/catalog.ts).
  */
 
-const API_BASE_URL = "http://localhost:4000";
+import { API_BASE_URL, accessToken } from "../lib/api";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type RiskLabel = "GREEN" | "YELLOW" | "RED" | "CRITICAL";
+export type DataProvenance =
+  | "imported-real"
+  | "imported-synthetic"
+  | "legacy"
+  | "synthetic";
 
 export type SimulationDay = {
   day: number;
@@ -148,16 +153,24 @@ export type ScenarioResponse = {
   model: ModelInfo;
   results: SimulationResult[];
   source: ScenarioDataSource;
+  dataProvenance?: DataProvenance;
 };
 
 export async function runScenarioSimulation(
   scenarioId: number,
 ): Promise<ScenarioResponse> {
+  const token = await accessToken();
+
+  if (!token) {
+    throw new Error("Sign in again to run scenario simulations.");
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/api/scenarios/simulate`,
     {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

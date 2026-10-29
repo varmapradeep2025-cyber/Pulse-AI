@@ -100,7 +100,7 @@ export function buildSyntheticDataset(): SyntheticDataset {
   const demandRows: SyntheticDemandRow[] = [];
 
   /* Dataset ends "yesterday" and spans one full year. */
-  const end = new Date(2026, 8, 22); // 2026-09-22
+  const end = new Date(Date.UTC(2026, 8, 22));
 
   for (const hospital of hospitals) {
     const scale = 12 + hospital.id * 6;
@@ -129,11 +129,11 @@ export function buildSyntheticDataset(): SyntheticDataset {
       for (let dayOffset = 364; dayOffset >= 0; dayOffset--) {
         const date = new Date(end);
 
-        date.setDate(date.getDate() - dayOffset);
+        date.setUTCDate(date.getUTCDate() - dayOffset);
 
-        const weekday = date.getDay();
+        const weekday = date.getUTCDay();
 
-        const month = date.getMonth();
+        const month = date.getUTCMonth();
 
         const seasonal = 1 + 0.18 * Math.sin((2 * Math.PI * month) / 12 + 0.6);
 

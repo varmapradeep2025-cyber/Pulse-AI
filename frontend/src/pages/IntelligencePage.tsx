@@ -204,9 +204,13 @@ export default function IntelligencePage() {
 
       <div className="demo-note">
         <strong>{SYNTHETIC_DATA_LABEL}:</strong>{" "}
-        {summary.online
-          ? "Forecasts are computed by the Pulse AI backend from seeded demo demand history. Do not base real procurement decisions on this prototype."
-          : "The backend is not running, so a local ML engine is forecasting on deterministic demo data. Do not base real procurement decisions on this prototype."}
+        {summary.provenance === "imported-real"
+          ? "Forecasts use imported real inventory reports. Validate stock levels before procurement decisions."
+          : summary.provenance === "imported-synthetic"
+            ? "Forecasts use imported inventory reports explicitly marked as synthetic demo data."
+            : summary.online
+              ? "Forecasts are computed by the Pulse AI backend from seeded demo demand history. Do not base real procurement decisions on this prototype."
+              : "The backend is not running, so a local ML engine is forecasting on deterministic demo data. Do not base real procurement decisions on this prototype."}
       </div>
 
       {/* Pipeline */}

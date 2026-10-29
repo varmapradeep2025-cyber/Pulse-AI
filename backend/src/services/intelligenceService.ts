@@ -11,7 +11,6 @@
  * synthetic fallback when the database is empty.
  */
 
-import { supabase } from "../utils/supabase.js";
 import {
   addDays,
   BASE_FEATURE_NAMES,
@@ -24,7 +23,12 @@ import {
   predictVector,
   seriesMean,
 } from "./mlForecast.js";
-import { SyntheticDataset, buildSyntheticDataset } from "./syntheticData.js";
+import {
+  loadOperationalDataset,
+  type OperationalDemandRow,
+  type OperationalProvenance,
+  type OperationalScope,
+} from "./operationalData.js";
 
 export type RiskLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
@@ -71,6 +75,8 @@ export interface SeriesForecast {
 export interface IntelligenceSummary {
   generatedAt: string;
   source: "supabase" | "synthetic-fallback";
+  provenance: OperationalProvenance;
+  dataAsOf: string | null;
   hospitals: HospitalInfo[];
   medicines: MedicineInfo[];
   model: {
@@ -139,109 +145,7 @@ function leadTimeDays(
   return Math.min(10, Math.max(2, Math.round(safetyStock / meanDemand)));
 }
 
-/* ------------------------------------------------------------------ */
-/* Data loading (Supabase with synthetic fallback)                     */
-/* ------------------------------------------------------------------ */
-
-interface DemandFood {
-  hospital_id: number;
-  medicine_id: number;
-  date: string;
-  demand: number;
-}
-
-async function loadInventory(): Promise<InventoryItem[]> {
-  const { data, error } = await supabase
-    .from("inventory")
-    .select("hospital_id, medicine_id, current_stock, safety_stock, daily_consumption");
-
-  if (error || !data || data.length === 0) {
-    return [];
-  }
-
-  return data.map((row) => ({
-    hospitalId: Number(row.hospital_id),
-    medicineId: Number(row.medicine_id),
-    currentStock: Number(row.current_stock),
-    safetyStock: Number(row.safety_stock),
-    dailyConsumption: Number(row.daily_consumption ?? 0),
-  }));
-}
-
-async function loadDemandHistory(): Promise<DemandFood[]> {
-  const rows: DemandFood[] = [];
-
-  const PAGE_SIZE = 1000;
-  let offset = 0;
-
-  for (;;) {
-    const { data, error } = await supabase
-      .from("demand_history")
-      .select("hospital_id, medicine_id, demand_date, demand")
-      .order("hospital_id", { ascending: true })
-      .order("medicine_id", { ascending: true })
-      .order("demand_date", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) {
-      throw new Error(
-        `Demand history lookup failed: ${error.message}`,
-      );
-    }
-
-    if (!data || data.length === 0) {
-      break;
-    }
-
-    rows.push(
-      ...data.map((row) => ({
-        hospital_id: Number(row.hospital_id),
-        medicine_id: Number(row.medicine_id),
-        date: String(row.demand_date).slice(0, 10),
-        demand: Number(row.demand),
-      })),
-    );
-
-    if (data.length < PAGE_SIZE) {
-      break;
-    }
-
-    offset += PAGE_SIZE;
-  }
-
-  return rows;
-}
-
-async function loadHospitals(): Promise<HospitalInfo[]> {
-  const { data, error } = await supabase.from("hospitals").select("id, name");
-
-  if (error || !data || data.length === 0) {
-    return [];
-  }
-
-  return data.map((row) => ({
-    id: Number(row.id),
-    name: String(row.name),
-  }));
-}
-
-async function loadMedicines(): Promise<MedicineInfo[]> {
-  const { data, error } = await supabase
-    .from("medicines")
-    .select("id, name, category, criticality, unit");
-
-  if (error || !data || data.length === 0) {
-    return [];
-  }
-
-  return data.map((row) => ({
-    id: Number(row.id),
-    name: String(row.name),
-    category: String(row.category ?? ""),
-    criticality: String(row.criticality ?? ""),
-    unit: String(row.unit ?? ""),
-  }));
-}
+type DemandFood = OperationalDemandRow;
 
 /* ------------------------------------------------------------------ */
 /* Forecasting pipeline                                                */
@@ -380,14 +284,14 @@ export function buildSeriesForecasts(
       const previous = simulated[simulated.length - 1];
 
       const features = [
-        ...buildBaseFeatures(simulated, simulated.length - 1),
+        ...buildBaseFeatures(simulated, simulated.length),
         ...extra,
       ];
 
       const predicted = Math.round(predictVector(model, features));
 
       const predictedPoint = {
-        date: dateString(addDays(new Date(`${previous.date}T00:00:00`), 1)),
+        date: dateString(addDays(new Date(`${previous.date}T00:00:00Z`), 1)),
         predicted,
       };
 
@@ -524,48 +428,34 @@ export function buildSeriesForecasts(
 /* Public entry point                                                  */
 /* ------------------------------------------------------------------ */
 
-export async function buildIntelligenceSummary(): Promise<IntelligenceSummary> {
-  let hospitals = await loadHospitals();
-  let medicines = await loadMedicines();
-  let inventory = await loadInventory();
-  let demandRows = await loadDemandHistory();
-
-  let source: IntelligenceSummary["source"] = "supabase";
-
-  if (
-    hospitals.length === 0 ||
-    medicines.length === 0 ||
-    inventory.length === 0 ||
-    demandRows.length === 0
-  ) {
-    const synthetic: SyntheticDataset = buildSyntheticDataset();
-
-    source = "synthetic-fallback";
-
-    hospitals = synthetic.hospitals;
-    medicines = synthetic.medicines;
-    inventory = synthetic.inventory.map((item) => ({
-      hospitalId: item.hospital_id,
-      medicineId: item.medicine_id,
-      currentStock: item.current_stock,
-      safetyStock: item.safety_stock,
-      dailyConsumption: item.daily_consumption,
-    }));
-    demandRows = synthetic.demandRows;
-  }
+export async function buildIntelligenceSummary(
+  scope?: OperationalScope,
+): Promise<IntelligenceSummary> {
+  const dataset = await loadOperationalDataset(scope);
+  const inventory = dataset.inventory.map((item) => ({
+    hospitalId: item.hospital_id,
+    medicineId: item.medicine_id,
+    currentStock: item.current_stock,
+    safetyStock: item.safety_stock,
+    dailyConsumption: item.daily_consumption,
+  }));
+  const source: IntelligenceSummary["source"] =
+    dataset.provenance === "synthetic" ? "synthetic-fallback" : "supabase";
 
   const { model, series } = buildSeriesForecasts(
     inventory,
-    demandRows,
-    hospitals,
-    medicines,
+    dataset.demandRows,
+    dataset.hospitals,
+    dataset.medicines,
   );
 
   return {
     generatedAt: new Date().toISOString(),
     source,
-    hospitals,
-    medicines,
+    provenance: dataset.provenance,
+    dataAsOf: dataset.latestReportDate,
+    hospitals: dataset.hospitals,
+    medicines: dataset.medicines,
     model,
     series,
   };
