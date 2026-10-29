@@ -19,6 +19,7 @@ import {
 import {
   type EmailProvider,
   MockEmailProvider,
+  ResendEmailProvider,
   renderAppointmentCancelledEmail,
   renderAppointmentConfirmedEmail,
   renderAppointmentReminderEmail,
@@ -31,6 +32,7 @@ import {
 import {
   type SmsProvider,
   MockSmsProvider,
+  Fast2SMSProvider,
 } from "./providers/smsProvider.js";
 
 export class NotificationError extends Error {
@@ -518,4 +520,37 @@ export class NotificationService {
   }
 }
 
-export const notificationService = new NotificationService();
+/* -- Auto-wire real providers when API keys are present -------------
+   Falls back to Mock providers when keys are absent, so the app
+   starts cleanly in dev without any configuration.                  */
+function createNotificationService(): NotificationService {
+  const { env } = await import("../config/env.js").catch(() => ({ env: {} as Record<string,string> }));
+  return new NotificationService({});
+}
+
+import { env } from "../config/env.js";
+
+function buildNotificationService(): NotificationService {
+  const emailProvider: EmailProvider = env.RESEND_API_KEY
+    ? new ResendEmailProvider(env.RESEND_API_KEY, env.RESEND_FROM_EMAIL)
+    : new MockEmailProvider();
+
+  const smsProvider: SmsProvider = env.FAST2SMS_API_KEY
+    ? new Fast2SMSProvider(env.FAST2SMS_API_KEY)
+    : new MockSmsProvider();
+
+  const activeProviders: string[] = [];
+  if (env.RESEND_API_KEY) activeProviders.push("resend-email");
+  if (env.FAST2SMS_API_KEY) activeProviders.push("fast2sms-sms");
+  if (activeProviders.length === 0) activeProviders.push("mock (no keys set)");
+
+  console.log(`[notifications] Active providers: ${activeProviders.join(", ")}`);
+
+  return new NotificationService({
+    emailProvider,
+    smsProvider,
+    appUrl: env.APP_URL,
+  });
+}
+
+export const notificationService = buildNotificationService();

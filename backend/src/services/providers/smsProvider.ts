@@ -65,6 +65,97 @@ export class MockSmsProvider implements SmsProvider {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Fast2SMS Provider (India — free tier, no TRAI DLT needed for dev)  */
+/* Sign up at https://www.fast2sms.com → Dev API → copy API Key       */
+/* ------------------------------------------------------------------ */
+
+export class Fast2SMSProvider implements SmsProvider {
+  readonly name = "fast2sms";
+
+  constructor(private readonly apiKey?: string) {}
+
+  async sendSms(message: SmsMessage): Promise<NotificationDispatchResult> {
+    const normalized = normalizeIndianPhoneNumber(message.phoneNumber);
+
+    if (!normalized) {
+      return {
+        channel: "sms",
+        recipient: message.phoneNumber,
+        status: "failed",
+        provider: this.name,
+        errorMessage:
+          "Invalid phone number. Expected a 10-digit Indian mobile number.",
+      };
+    }
+
+    if (!this.apiKey) {
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "failed",
+        provider: this.name,
+        errorMessage:
+          "FAST2SMS_API_KEY is not configured in backend environment. SMS sending skipped.",
+      };
+    }
+
+    // Fast2SMS Quick SMS (no template required)
+    // Strips the +91 prefix — Fast2SMS expects 10-digit numbers
+    const tenDigit = normalized.replace(/^\+91/, "");
+
+    try {
+      const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: {
+          authorization: this.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          route: "q",          // Quick / dev route
+          message: message.message.slice(0, 160),
+          language: "english",
+          flash: 0,
+          numbers: tenDigit,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        return?: boolean;
+        request_id?: string;
+        message?: string[];
+      };
+
+      if (!response.ok || !data.return) {
+        return {
+          channel: "sms",
+          recipient: normalized,
+          status: "failed",
+          provider: this.name,
+          errorMessage: `Fast2SMS error: ${data.message?.join(", ") ?? response.status}`,
+        };
+      }
+
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "accepted",
+        provider: this.name,
+        providerMessageId: data.request_id ?? `f2s-${Date.now()}`,
+      };
+    } catch (error) {
+      return {
+        channel: "sms",
+        recipient: normalized,
+        status: "failed",
+        provider: this.name,
+        errorMessage:
+          error instanceof Error ? error.message : "Unknown network error",
+      };
+    }
+  }
+}
+
 export class ExotelSmsProvider implements SmsProvider {
   readonly name = "exotel";
 

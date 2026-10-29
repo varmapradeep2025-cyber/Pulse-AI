@@ -34,6 +34,18 @@ const FRONTEND_ORIGINS = parseFrontendOrigins(
   process.env.FRONTEND_ORIGINS,
 );
 
+// ── Notification provider keys ──────────────────────────────────────
+// Email: Resend (https://resend.com — free 3 000 emails/month)
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+const RESEND_FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL ?? "Pulse AI <onboarding@resend.dev>";
+
+// SMS: Fast2SMS (https://fast2sms.com — free credits, India mobile numbers)
+const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY ?? "";
+
+// App public URL used in email/push links
+const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
+
 export const env = {
   PORT,
   HOST,
@@ -43,4 +55,8 @@ export const env = {
   APPOINTMENT_STAFF_USER_IDS,
   INVENTORY_STAFF_USER_IDS,
   FRONTEND_ORIGINS,
+  RESEND_API_KEY,
+  RESEND_FROM_EMAIL,
+  FAST2SMS_API_KEY,
+  APP_URL,
 };
