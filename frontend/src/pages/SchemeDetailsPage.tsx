@@ -472,10 +472,10 @@ export default function SchemeDetailsPage() {
                     border: `1px solid ${
                       available ? "#86efac" : "#fcd34d"
                     }`,
-                    background: available ? "#f0fdf4" : "#fffbeb",
+                    background: available ? "var(--color-success-soft)" : "var(--color-warning-soft)",
                   }}
                 >
-                  <span style={{ fontSize: "14px" }}>
+                  <span style={{ fontSize: "14px", color: "var(--color-text)" }}>
                     {available ? "✓" : "⚠"} {name}
                     {available ? (
                       <span style={{ color: "#166534", marginLeft: "8px" }}>

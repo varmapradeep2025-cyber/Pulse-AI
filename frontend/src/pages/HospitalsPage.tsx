@@ -329,9 +329,9 @@ export default function HospitalsPage() {
         style={{
           marginBottom: "24px",
           padding: "20px",
-          border: "1px solid #ddd",
+          border: "1px solid var(--color-border)",
           borderRadius: "12px",
-          background: "#fff",
+          background: "var(--color-surface)",
         }}
       >
         <h2

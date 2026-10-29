@@ -420,10 +420,10 @@ export default function ReportsPage() {
               marginTop: "16px",
               padding: "18px",
               borderRadius: "10px",
-              border: "1px dashed #cbd5e1",
-              background: "#f8fafc",
+              border: "1px dashed var(--color-border)",
+              background: "var(--color-surface-soft)",
               fontSize: "14px",
-              color: "#475569",
+              color: "var(--color-text-muted)",
             }}
           >
             No simulation reports yet. Run a scenario from the{" "}

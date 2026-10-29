@@ -7,6 +7,8 @@ const STAFF_ROLES = new Set([
   "inventory-admin",
   "inventory_manager",
   "inventory-manager",
+  "admin",
+  "administrator",
 ]);
 
 export interface InventoryClaims {
@@ -96,12 +98,21 @@ export function resolveInventoryUser(
     ]),
   ];
 
+  const roleName = normalizedRole(metadata.role);
+  const inventoryRoleName = normalizedRole(metadata.inventory_role);
+  const isAdmin =
+    roleName === "admin" ||
+    roleName === "administrator" ||
+    inventoryRoleName === "admin" ||
+    inventoryRoleName === "administrator";
+
   return {
     id,
     email: claims.email,
-    isStaff: environmentStaff || hasInventoryStaffRole(metadata),
+    isStaff: environmentStaff || hasInventoryStaffRole(metadata) || isAdmin,
     hospitalIds,
     allHospitals:
+      isAdmin ||
       truthyFlag(metadata.inventory_all_hospitals) ||
       (environmentStaff && hospitalIds.length === 0),
   };

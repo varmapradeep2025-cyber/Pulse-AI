@@ -3,7 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { env } from "../config/env.js";
 import { supabase } from "../utils/supabase.js";
-import { parseInventoryStaffIds } from "../services/inventoryAccess.js";
+import {
+  parseInventoryStaffIds,
+  resolveInventoryUser,
+} from "../services/inventoryAccess.js";
 
 export function getAllowedInventoryStaffIds(): ReadonlySet<string> {
   const ids = new Set<string>();
@@ -67,7 +70,7 @@ async function defaultSupabaseVerifier(token: string) {
 
 export function createInventoryAuth(
   verifier: InventoryUserClaimsVerifier = defaultSupabaseVerifier,
-  _getAllowedIds: () => ReadonlySet<string> = getAllowedInventoryStaffIds,
+  getAllowedIds: () => ReadonlySet<string> = getAllowedInventoryStaffIds,
 ) {
   return async function inventoryAuthMiddleware(
     req: Request,
@@ -75,40 +78,70 @@ export function createInventoryAuth(
     next: NextFunction,
   ): Promise<void> {
     const header = req.headers.authorization;
-    const token = header?.startsWith("Bearer ")
-      ? header.slice("Bearer ".length).trim()
-      : undefined;
-
-    if (token) {
-      try {
-        const user = await verifier(token);
-
-        if (user) {
-          req.inventoryUser = {
-            id: user.id,
-            email: user.email,
-            isStaff: true,
-            allHospitals: true,
-            hospitalIds: [1, 2, 3, 4, 5],
-          };
-          next();
-          return;
-        }
-      } catch (error) {
-        console.warn("Inventory auth token verification skipped, using default access:", error);
-      }
+    if (!header?.startsWith("Bearer ")) {
+      res.status(401).json({
+        success: false,
+        code: "AUTH_REQUIRED",
+        message: "Sign in to use hospital inventory.",
+      });
+      return;
     }
 
-    // Unauthenticated or tokenless access: grant public staff access so anyone can use inventory
-    req.inventoryUser = {
-      id: "00000000-0000-0000-0000-000000000000",
-      email: "public-staff@pulse.ai",
-      isStaff: true,
-      allHospitals: true,
-      hospitalIds: [1, 2, 3, 4, 5],
-    };
+    const token = header.slice("Bearer ".length).trim();
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        code: "AUTH_REQUIRED",
+        message: "Sign in to use hospital inventory.",
+      });
+      return;
+    }
 
-    next();
+    try {
+      const user = await verifier(token);
+
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          code: "INVALID_SESSION",
+          message: "Your session is invalid or has expired. Sign in again.",
+        });
+        return;
+      }
+
+      const allowedIds = getAllowedIds();
+      const resolved = resolveInventoryUser(
+        {
+          sub: user.id,
+          email: user.email,
+          app_metadata: user.app_metadata ?? {},
+          user_metadata: user.user_metadata ?? {},
+        },
+        allowedIds,
+      );
+
+      if (!resolved) {
+        res.status(401).json({
+          success: false,
+          code: "INVALID_SESSION",
+          message: "Your session is invalid or has expired. Sign in again.",
+        });
+        return;
+      }
+
+      req.inventoryUser = resolved;
+      next();
+    } catch (error) {
+      console.error(
+        "Inventory auth verification error:",
+        error instanceof Error ? error.message : "unknown error",
+      );
+      res.status(503).json({
+        success: false,
+        code: "AUTH_UNAVAILABLE",
+        message: "Authentication is temporarily unavailable. Try again shortly.",
+      });
+    }
   };
 }
 
@@ -120,19 +153,22 @@ export function requireInventoryStaff(
   next: NextFunction,
 ): void {
   if (!req.inventoryUser) {
-    req.inventoryUser = {
-      id: "00000000-0000-0000-0000-000000000000",
-      email: "public-staff@pulse.ai",
-      isStaff: true,
-      allHospitals: true,
-      hospitalIds: [1, 2, 3, 4, 5],
-    };
+    res.status(401).json({
+      success: false,
+      code: "AUTH_REQUIRED",
+      message: "Sign in to use hospital inventory.",
+    });
+    return;
   }
 
-  req.inventoryUser.isStaff = true;
-  req.inventoryUser.allHospitals = true;
-  if (!req.inventoryUser.hospitalIds || req.inventoryUser.hospitalIds.length === 0) {
-    req.inventoryUser.hospitalIds = [1, 2, 3, 4, 5];
+  if (!req.inventoryUser.isStaff) {
+    res.status(403).json({
+      success: false,
+      code: "STAFF_ACCESS_REQUIRED",
+      message:
+        "Staff inventory access is not configured for this account. Ask an administrator to assign an inventory staff role.",
+    });
+    return;
   }
 
   next();

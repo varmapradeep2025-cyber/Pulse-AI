@@ -142,8 +142,8 @@ export default function SchemesPage() {
           marginBottom: "24px",
           padding: "16px",
           borderRadius: "12px",
-          border: "1px solid #d1e7dd",
-          background: "#f6fcf9",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface-soft)",
         }}
       >
         <div

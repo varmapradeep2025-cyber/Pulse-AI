@@ -1050,7 +1050,7 @@ img {
 }
 
 .voice-card__error {
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-danger);
   border: 1px solid rgba(179, 38, 30, 0.4);
   border-radius: var(--radius);
@@ -1061,7 +1061,7 @@ img {
 }
 
 .voice-card__response {
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius);
   padding: 0.9rem 1.1rem;
@@ -1090,7 +1090,7 @@ img {
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-surface);
   color: var(--color-primary-dark);
   cursor: pointer;
   transition: transform 0.12s ease;
@@ -1702,6 +1702,9 @@ img {
   margin-top: 0.25rem;
   color: var(--color-text);
   line-height: 1.2;
+}
+.intel-metric__value--highlight {
+  color: var(--color-success);
 }
 .intel-metric__sub {
   font-size: 0.8rem;
@@ -2778,7 +2781,7 @@ img {
 .rb-request__detail {
   padding: 1rem;
   border-top: 1px dashed var(--color-border);
-  background: #f8fafc;
+  background: var(--color-surface-soft);
   display: flex;
   flex-direction: column;
   gap: 0.9rem;

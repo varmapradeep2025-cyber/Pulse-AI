@@ -380,8 +380,9 @@ export default function AssistantPage() {
             style={{
               padding: "7px 12px",
               borderRadius: "999px",
-              border: "1px solid #cbd5e1",
-              background: "#fff",
+              border: "1px solid var(--color-border)",
+              background: "var(--color-surface-soft)",
+              color: "var(--color-text)",
               fontSize: "13px",
               cursor: "pointer",
             }}
@@ -422,9 +423,9 @@ export default function AssistantPage() {
           style={{
             marginTop: "30px",
             padding: "18px 20px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--color-border)",
             borderRadius: "14px",
-            background: "#fff",
+            background: "var(--color-surface)",
           }}
         >
           <div
@@ -560,9 +561,10 @@ export default function AssistantPage() {
                   style={{
                     padding: "20px",
                     border:
-                      "1px solid #e2e8f0",
+                      "1px solid var(--color-border)",
                     borderRadius: "14px",
-                    background: "#fff",
+                    background: "var(--color-surface-soft)",
+              color: "var(--color-text)",
                     boxShadow:
                       "0 4px 14px rgba(0,0,0,0.06)",
                     height: "100%",

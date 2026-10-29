@@ -149,18 +149,40 @@ router.delete("/push/unsubscribe", (req, res) => {
   }
 });
 
-/* POST /api/notifications/process-worker - Trigger background scheduler cycle */
-router.post("/process-worker", async (_req, res) => {
-  try {
-    const result = await notificationService.processDueJobs();
+/* POST /api/notifications/process-worker - Trigger background scheduler cycle (Admin/Staff/Cron only) */
+router.post(
+  "/process-worker",
+  (req, res, next) => {
+    const cronSecret = req.headers["x-cron-key"] ?? req.headers["x-worker-secret"];
+    const isCronService = Boolean(
+      process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET,
+    );
+    const isAdminStaff = Boolean(req.appointmentUser?.isStaff);
 
-    res.status(200).json({
-      success: true,
-      ...result,
-    });
-  } catch (error) {
-    sendNotificationError(res, error);
-  }
-});
+    if (!isCronService && !isAdminStaff) {
+      res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        message:
+          "Background worker execution is restricted to staff administrators and authorized cron services.",
+      });
+      return;
+    }
+
+    next();
+  },
+  async (_req, res) => {
+    try {
+      const result = await notificationService.processDueJobs();
+
+      res.status(200).json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  },
+);
 
 export default router;

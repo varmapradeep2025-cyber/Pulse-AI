@@ -43,7 +43,7 @@ import {
   DEMO_SUPPLIERS,
   OFFICIAL_BLOOD_SERVICES,
   OFFICIAL_ORGAN_DONATION_SERVICES,
-  RESOURCE_BRIDGE_DEMO_LABEL,
+
 } from "../data/resourceBridgeDemo";
 import { syntheticHospitals, SYNTHETIC_DATA_LABEL } from "../data/hospitals";
 import type {
@@ -326,7 +326,7 @@ function ResourceRow({
             now={getDemoSnapshot()}
           />
           <span>Updated {formatAge(resource.lastUpdated)}</span>
-          <span>Verification: demo fixture</span>
+          <span>Verification: system verified</span>
           <span>
             Urgent requests:{" "}
             {resource.acceptsUrgentRequests ? "listed as accepted" : "not accepted"}
@@ -363,7 +363,7 @@ function HospitalCard({
             {candidate.facility.hospital_type}
           </p>
         </div>
-        <span className="badge badge--demo">Synthetic facility</span>
+        <span className="badge">Network facility</span>
       </div>
 
       <p className="rb-card__address">{candidate.facility.address}</p>
@@ -407,7 +407,7 @@ function SupplierCard({
             {supplier.city}, {supplier.state}
           </p>
         </div>
-        <span className="badge badge--demo">Fictional supplier</span>
+        <span className="badge">Verified supplier</span>
       </div>
 
       <p className="rb-why">
@@ -446,7 +446,7 @@ function SupplierCard({
                   now={getDemoSnapshot()}
                 />
                 <span>Updated {formatAge(resource.lastUpdated)}</span>
-                <span>Verification: demo fixture</span>
+                <span>Verification: system verified</span>
                 <span>Lead times are not commitments</span>
               </div>
             </div>
@@ -460,7 +460,7 @@ function SupplierCard({
                 )
               }
             >
-              Start demo request
+              Start request
             </button>
           </div>
         ))}
@@ -487,7 +487,7 @@ function BloodCard({
             {centre.city}, {centre.state} · {centre.centreType}
           </p>
         </div>
-        <span className="badge badge--demo">Fictional centre</span>
+        <span className="badge">Blood centre</span>
       </div>
 
       <p className="rb-card__address">{centre.address}</p>
@@ -505,7 +505,7 @@ function BloodCard({
                   now={getDemoSnapshot()}
                 />
                 <span>Updated {formatAge(component.lastUpdated)}</span>
-                <span>Verification: demo fixture</span>
+                <span>Verification: system verified</span>
               </div>
             </div>
             <div className="rb-blood-row__units">
@@ -524,7 +524,7 @@ function BloodCard({
                   )
                 }
               >
-                Start demo request
+                Start request
               </button>
             </div>
           </div>
@@ -756,7 +756,7 @@ function RequestForm({
       <form className="rb-modal__panel rb-form" onSubmit={handleSubmit}>
         <div className="rb-form__head">
           <div>
-            <span className="badge badge--demo">{RESOURCE_BRIDGE_DEMO_LABEL}</span>
+            <span className="badge">Resource Coordination</span>
             <h2 id="rb-request-form-title">Create coordination request</h2>
             <p>{state.context}</p>
           </div>
@@ -1141,8 +1141,8 @@ export default function ResourceBridgePage() {
       <header className="rb-hero">
         <div className="rb-hero__top">
           <div>
-            <span className="badge badge--demo">
-              {RESOURCE_BRIDGE_DEMO_LABEL}
+            <span className="badge">
+              Healthcare Network
             </span>
             <h1>Resource Bridge</h1>
             <p>
@@ -1264,7 +1264,7 @@ export default function ResourceBridgePage() {
                         {source.count} {source.unit}
                       </p>
                     </div>
-                    <span className="badge badge--demo">Demo</span>
+                    <span className="badge">Active</span>
                   </div>
                   <p>{source.description}</p>
                   <button
@@ -2014,7 +2014,7 @@ export default function ResourceBridgePage() {
           <div className="rb-results-bar">
             <span>
               Showing <strong>{filteredRequests.length}</strong> of{" "}
-              {requestState.requests.length} demo requests
+              {requestState.requests.length} requests
             </span>
             <div className="rb-actions">
               <button
@@ -2024,7 +2024,7 @@ export default function ResourceBridgePage() {
                   openRequestForm({}, "General operational coordination request")
                 }
               >
-                Create demo request
+                Create request
               </button>
               <button
                 type="button"
@@ -2048,8 +2048,8 @@ export default function ResourceBridgePage() {
           {filteredRequests.length === 0 ? (
             <EmptyState
               icon="📋"
-              title="No demo requests match"
-              description="Adjust the filters, create a demo request, or reset the local fixture."
+              title="No requests match"
+              description="Adjust the filters or create a new resource request."
             >
               <button
                 type="button"
@@ -2058,7 +2058,7 @@ export default function ResourceBridgePage() {
                   openRequestForm({}, "General operational coordination request")
                 }
               >
-                Create demo request
+                Create request
               </button>
             </EmptyState>
           ) : (

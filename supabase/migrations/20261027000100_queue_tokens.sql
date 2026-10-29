@@ -56,6 +56,7 @@ create or replace function public.allocate_queue_token(
 returns integer
 language plpgsql
 security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_next_token integer;
@@ -94,6 +95,7 @@ create or replace function public.advance_serving_token(
 returns void
 language plpgsql
 security definer
+set search_path = public, pg_temp
 as $$
 begin
   insert into public.queue_counters (
