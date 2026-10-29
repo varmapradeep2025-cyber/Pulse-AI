@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { createCorsOptions } from "./config/cors.js";
 import { env } from "./config/env.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
@@ -17,6 +18,26 @@ import notificationRouter from "./routes/notifications.js";
 const app = express();
 
 app.disable("x-powered-by");
+
+// Safe reverse proxy trust configuration:
+// Defaults to 1 hop in production (Render, Vercel, Cloudflare), or disabled in local dev.
+const trustProxyEnv =
+  process.env.TRUST_PROXY ?? (env.NODE_ENV === "production" ? "1" : "false");
+if (trustProxyEnv === "true") {
+  app.set("trust proxy", true);
+} else if (trustProxyEnv !== "false") {
+  const hops = Number(trustProxyEnv);
+  app.set("trust proxy", Number.isFinite(hops) ? hops : trustProxyEnv);
+}
+
+// HTTP security headers via Helmet
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: env.NODE_ENV === "production" ? undefined : false,
+  }),
+);
+
 app.use(cors(createCorsOptions(env.FRONTEND_ORIGINS)));
 app.use(express.json({ limit: "1mb" }));
 

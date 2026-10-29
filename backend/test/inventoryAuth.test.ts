@@ -46,48 +46,115 @@ function createMockResponse() {
   };
 }
 
-test("inventory authorization: 1. any authenticated user is granted staff access with full hospital access", async () => {
+test("inventory security: 1. unauthenticated requests without a bearer token are rejected with 401 AUTH_REQUIRED", async () => {
+  const authMiddleware = createInventoryAuth(async () => null, () => new Set());
+  const req = {
+    headers: {},
+  } as Request;
+
+  const { response, state } = createMockResponse();
+  let nextCalled = false;
+
+  await authMiddleware(req, response, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(state.statusCode, 401);
+  assert.deepEqual(state.body, {
+    success: false,
+    code: "AUTH_REQUIRED",
+    message: "Sign in to use hospital inventory.",
+  });
+});
+
+test("inventory security: 2. empty or non-bearer authorization headers are rejected with 401", async () => {
+  const authMiddleware = createInventoryAuth(async () => null, () => new Set());
+  const req = {
+    headers: { authorization: "Basic dXNlcjpwYXNz" },
+  } as Request;
+
+  const { response, state } = createMockResponse();
+  let nextCalled = false;
+
+  await authMiddleware(req, response, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(state.statusCode, 401);
+  assert.equal((state.body as { code: string }).code, "AUTH_REQUIRED");
+});
+
+test("inventory security: 3. invalid or expired tokens are rejected with 401 INVALID_SESSION", async () => {
+  const authMiddleware = createInventoryAuth(async () => null, () => new Set());
+  const req = {
+    headers: { authorization: "Bearer expired-or-invalid-token" },
+  } as Request;
+
+  const { response, state } = createMockResponse();
+  let nextCalled = false;
+
+  await authMiddleware(req, response, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(state.statusCode, 401);
+  assert.deepEqual(state.body, {
+    success: false,
+    code: "INVALID_SESSION",
+    message: "Your session is invalid or has expired. Sign in again.",
+  });
+});
+
+test("inventory security: 4. authenticated non-staff users are rejected by requireInventoryStaff with 403", async () => {
+  const citizenId = "citizen-1111-2222-3333-444455556666";
   const mockUser = {
-    id: "11111111-1111-4111-8111-111111111111",
-    email: "regular@example.com",
-    app_metadata: { provider: "email" },
+    id: citizenId,
+    email: "citizen@example.com",
+    app_metadata: {},
+    user_metadata: {},
   };
 
   const authMiddleware = createInventoryAuth(async () => mockUser, () => new Set());
   const req = {
-    headers: { authorization: "Bearer valid-token" },
+    headers: { authorization: "Bearer valid-citizen-token" },
   } as Request;
 
   const { response: authRes } = createMockResponse();
-  let nextCalled = false;
-
+  let authNext = false;
   await authMiddleware(req, authRes, () => {
-    nextCalled = true;
+    authNext = true;
   });
 
-  assert.equal(nextCalled, true);
+  assert.equal(authNext, true);
   assert.ok(req.inventoryUser);
-  assert.equal(req.inventoryUser.isStaff, true);
-  assert.equal(req.inventoryUser.allHospitals, true);
+  assert.equal(req.inventoryUser.isStaff, false);
 
-  // Now pass to requireInventoryStaff
-  let staffNextCalled = false;
-  const { response: staffRes } = createMockResponse();
-
+  // Now pass to requireInventoryStaff: must be rejected with 403
+  const { response: staffRes, state: staffState } = createMockResponse();
+  let staffNext = false;
   requireInventoryStaff(req, staffRes, () => {
-    staffNextCalled = true;
+    staffNext = true;
   });
 
-  assert.equal(staffNextCalled, true);
-  assert.equal(req.inventoryUser.isStaff, true);
+  assert.equal(staffNext, false);
+  assert.equal(staffState.statusCode, 403);
+  assert.deepEqual(staffState.body, {
+    success: false,
+    code: "STAFF_ACCESS_REQUIRED",
+    message: "Staff inventory access is not configured for this account. Ask an administrator to assign an inventory staff role.",
+  });
 });
 
-test("inventory authorization: 2. user authorized through INVENTORY_STAFF_USER_IDS gets full hospital access", async () => {
-  const staffId = "22222222-2222-4222-8222-222222222222";
+test("inventory security: 5. user authorized through INVENTORY_STAFF_USER_IDS gets staff access", async () => {
+  const staffId = "staff-user-9999-8888-7777-666655554444";
   const mockUser = {
     id: staffId,
-    email: "admin@example.com",
-    app_metadata: { provider: "email" },
+    email: "ops-lead@pulse.ai",
+    app_metadata: {},
+    user_metadata: {},
   };
 
   const allowedIds = new Set([staffId]);
@@ -108,33 +175,29 @@ test("inventory authorization: 2. user authorized through INVENTORY_STAFF_USER_I
   assert.equal(req.inventoryUser.isStaff, true);
   assert.equal(req.inventoryUser.allHospitals, true);
 
-  // Verify requireInventoryStaff allows request through
-  let staffNext = false;
   const { response: staffRes } = createMockResponse();
+  let staffNext = false;
   requireInventoryStaff(req, staffRes, () => {
     staffNext = true;
   });
-
   assert.equal(staffNext, true);
-  assert.equal(hospitalIsAllowed(req.inventoryUser, 1), true);
-  assert.equal(hospitalIsAllowed(req.inventoryUser, 2), true);
-  assert.equal(hospitalIsAllowed(req.inventoryUser, 999), true);
 });
 
-test("inventory authorization: 3. user with custom app_metadata retains hospital preferences while maintaining staff access", async () => {
-  const scopedId = "33333333-3333-4333-8333-333333333333";
+test("inventory security: 6. hospital isolation: Hospital 1 staff cannot access Hospital 2 records", async () => {
+  const hospital1StaffId = "hospital1-staff-id";
   const mockUser = {
-    id: scopedId,
-    email: "hospital_staff@example.com",
+    id: hospital1StaffId,
+    email: "hospital1_nurse@example.com",
     app_metadata: {
-      inventory_staff: true,
-      inventory_hospital_ids: [1, 2],
+      role: "inventory_staff",
+      inventory_hospital_ids: [1],
     },
+    user_metadata: {},
   };
 
   const authMiddleware = createInventoryAuth(async () => mockUser, () => new Set());
   const req = {
-    headers: { authorization: "Bearer valid-scoped-token" },
+    headers: { authorization: "Bearer valid-hospital1-token" },
   } as Request;
 
   const { response: authRes } = createMockResponse();
@@ -146,59 +209,83 @@ test("inventory authorization: 3. user with custom app_metadata retains hospital
   assert.equal(authNext, true);
   assert.ok(req.inventoryUser);
   assert.equal(req.inventoryUser.isStaff, true);
-  assert.equal(req.inventoryUser.allHospitals, true);
+  assert.equal(req.inventoryUser.allHospitals, false);
+  assert.deepEqual(req.inventoryUser.hospitalIds, [1]);
 
-  let staffNext = false;
-  const { response: staffRes } = createMockResponse();
-  requireInventoryStaff(req, staffRes, () => {
-    staffNext = true;
-  });
-
-  assert.equal(staffNext, true);
+  // Tenant isolation checks
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 1), true);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 2), false);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 3), false);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 4), false);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 5), false);
 });
 
-test("inventory authorization: 4. unauthenticated or tokenless requests automatically receive default staff access", async () => {
-  const authMiddleware = createInventoryAuth();
-  const req = {
-    headers: {},
-  } as Request;
-
-  const { response: authRes } = createMockResponse();
-  let authNext = false;
-  await authMiddleware(req, authRes, () => {
-    authNext = true;
-  });
-
-  assert.equal(authNext, true);
-  assert.ok(req.inventoryUser);
-  assert.equal(req.inventoryUser.isStaff, true);
-  assert.equal(req.inventoryUser.allHospitals, true);
-
-  const { response: staffRes } = createMockResponse();
-  let staffNext = false;
-  requireInventoryStaff(req, staffRes, () => {
-    staffNext = true;
-  });
-
-  assert.equal(staffNext, true);
-});
-
-test("inventory authorization: 5. hospitalIsAllowed permits access for any hospital id", () => {
-  const user = {
-    id: "user-test",
-    isStaff: true,
-    allHospitals: true,
-    hospitalIds: [1, 2, 3, 4, 5],
+test("inventory security: 7. privilege escalation: user attempting to put role in user_metadata is rejected", async () => {
+  const attackerId = "attacker-user-id";
+  const maliciousUser = {
+    id: attackerId,
+    email: "attacker@example.com",
+    app_metadata: { provider: "email" },
+    // Attacker attempted to set self-service role in user_metadata (which clients can update directly)
+    user_metadata: {
+      role: "inventory_admin",
+      inventory_staff: true,
+      inventory_all_hospitals: true,
+    },
   };
 
-  assert.equal(hospitalIsAllowed(user, 1), true);
-  assert.equal(hospitalIsAllowed(user, 2), true);
-  assert.equal(hospitalIsAllowed(user, 3), true);
-  assert.equal(hospitalIsAllowed(user, 4), true);
-  assert.equal(hospitalIsAllowed(user, 999), true);
+  const authMiddleware = createInventoryAuth(async () => maliciousUser, () => new Set());
+  const req = {
+    headers: { authorization: "Bearer attacker-token" },
+  } as Request;
+
+  const { response: authRes } = createMockResponse();
+  await authMiddleware(req, authRes, () => {});
+
+  assert.ok(req.inventoryUser);
+  // Privileged claims must ONLY be read from server-controlled app_metadata, never user_metadata
+  assert.equal(req.inventoryUser.isStaff, false);
+  assert.equal(req.inventoryUser.allHospitals, false);
+
+  const { response: staffRes, state: staffState } = createMockResponse();
+  let staffNext = false;
+  requireInventoryStaff(req, staffRes, () => {
+    staffNext = true;
+  });
+
+  assert.equal(staffNext, false);
+  assert.equal(staffState.statusCode, 403);
 });
 
-test("inventory authorization: 6. missing or malformed environment configuration never breaks parsing", () => {
+test("inventory security: 8. administrator with admin role has global access across all hospitals", async () => {
+  const adminId = "admin-user-id";
+  const adminUser = {
+    id: adminId,
+    email: "admin@pulse.ai",
+    app_metadata: {
+      role: "admin",
+    },
+    user_metadata: {},
+  };
+
+  const authMiddleware = createInventoryAuth(async () => adminUser, () => new Set());
+  const req = {
+    headers: { authorization: "Bearer admin-token" },
+  } as Request;
+
+  const { response: authRes } = createMockResponse();
+  await authMiddleware(req, authRes, () => {});
+
+  assert.ok(req.inventoryUser);
+  assert.equal(req.inventoryUser.isStaff, true);
+  assert.equal(req.inventoryUser.allHospitals, true);
+
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 1), true);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 2), true);
+  assert.equal(hospitalIsAllowed(req.inventoryUser, 3), true);
+});
+
+test("inventory security: 9. missing or malformed environment configuration never breaks parsing", () => {
   assert.deepEqual([...parseInventoryStaffIds("")], []);
   assert.deepEqual([...parseInventoryStaffIds("   \t \n  ")], []);
   assert.deepEqual([...parseInventoryStaffIds(",,;; \n,")], []);
@@ -212,44 +299,29 @@ test("inventory authorization: 6. missing or malformed environment configuration
   assert.equal(parsed.has("uuid-4"), true);
 });
 
-test("inventory authorization: 7. requireInventoryStaff middleware always calls next without 403", async () => {
-  const req = {} as Request;
-  const { response } = createMockResponse();
+test("inventory security: 10. authentication outages surface as safe 503 AUTH_UNAVAILABLE", async (t) => {
+  t.mock.method(console, "error", () => {});
+
+  const authMiddleware = createInventoryAuth(async () => {
+    throw new Error("Supabase auth connection timeout");
+  }, () => new Set());
+
+  const req = {
+    headers: { authorization: "Bearer valid-token" },
+  } as Request;
+
+  const { response, state } = createMockResponse();
   let nextCalled = false;
 
-  requireInventoryStaff(req, response, () => {
+  await authMiddleware(req, response, () => {
     nextCalled = true;
   });
 
-  assert.equal(nextCalled, true);
-  assert.ok(req.inventoryUser);
-  assert.equal(req.inventoryUser.isStaff, true);
-  assert.equal(req.inventoryUser.allHospitals, true);
-});
-
-test("inventory authorization: 8. createInventoryAuth grants access to any signed in user ID", async () => {
-  const customUserId = "1a5fc307-679e-4e75-b7ef-3feaea6dee3f";
-  const mockUser = {
-    id: customUserId,
-    email: "varmapradeep2025@gmail.com",
-    app_metadata: {},
-  };
-
-  const authMiddleware = createInventoryAuth(async () => mockUser, () => new Set());
-  const req = {
-    headers: { authorization: "Bearer custom-user-token" },
-  } as Request;
-
-  const { response: authRes } = createMockResponse();
-  let authNext = false;
-  await authMiddleware(req, authRes, () => {
-    authNext = true;
+  assert.equal(nextCalled, false);
+  assert.equal(state.statusCode, 503);
+  assert.deepEqual(state.body, {
+    success: false,
+    code: "AUTH_UNAVAILABLE",
+    message: "Authentication is temporarily unavailable. Try again shortly.",
   });
-
-  assert.equal(authNext, true);
-  assert.ok(req.inventoryUser);
-  assert.equal(req.inventoryUser.id, customUserId);
-  assert.equal(req.inventoryUser.isStaff, true);
-  assert.equal(req.inventoryUser.allHospitals, true);
-  assert.deepEqual(req.inventoryUser.hospitalIds, [1, 2, 3, 4, 5]);
 });
