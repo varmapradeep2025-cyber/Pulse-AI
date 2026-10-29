@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { env } from "../config/env.js";
 import { supabase } from "../utils/supabase.js";
 import {
@@ -8,11 +10,43 @@ import {
 } from "../services/inventoryAccess.js";
 
 export function getAllowedInventoryStaffIds(): ReadonlySet<string> {
+  const ids = new Set<string>();
+
   const envVar = process.env.INVENTORY_STAFF_USER_IDS;
   if (typeof envVar === "string") {
-    return parseInventoryStaffIds(envVar);
+    for (const id of parseInventoryStaffIds(envVar)) {
+      ids.add(id);
+    }
+  } else {
+    for (const id of env.INVENTORY_STAFF_USER_IDS) {
+      ids.add(id);
+    }
   }
-  return new Set(env.INVENTORY_STAFF_USER_IDS);
+
+  try {
+    const candidates = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "backend", ".env"),
+    ];
+    for (const file of candidates) {
+      if (fs.existsSync(file)) {
+        const text = fs.readFileSync(file, "utf8");
+        for (const line of text.split(/\r?\n/)) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("INVENTORY_STAFF_USER_IDS=")) {
+            const rawVal = trimmed.slice("INVENTORY_STAFF_USER_IDS=".length);
+            for (const id of parseInventoryStaffIds(rawVal)) {
+              ids.add(id);
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore file read error
+  }
+
+  return ids;
 }
 
 export type InventoryUserClaimsVerifier = (token: string) => Promise<{
