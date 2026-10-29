@@ -299,11 +299,17 @@ export default function InventoryImportPage() {
     null,
   );
 
-  async function loadSummary() {
+  async function loadSummary(options?: { refreshSession?: boolean } | unknown) {
+    const refreshSession =
+      typeof options === "object" &&
+      options !== null &&
+      "refreshSession" in options
+        ? Boolean((options as { refreshSession?: boolean }).refreshSession)
+        : false;
     setSummaryLoading(true);
 
     try {
-      const nextSummary = await getInventorySummary();
+      const nextSummary = await getInventorySummary({ refreshSession });
       setSummary(nextSummary);
       setSummaryError(null);
     } catch (error) {
@@ -489,20 +495,36 @@ export default function InventoryImportPage() {
 
         {accessDenied && (
           <div className="appointment-access-card inventory-access-card">
-            <h2>Inventory access required</h2>
+            <h2>
+              {summaryError instanceof InventoryApiError &&
+              summaryError.code === "INVENTORY_HOSPITAL_SCOPE_REQUIRED"
+                ? "Inventory hospital scope required"
+                : "Inventory access required"}
+            </h2>
             <p>
-              This account is signed in but is not assigned to inventory
-              access. Ask an administrator to add your Supabase user ID to
-              <code>INVENTORY_STAFF_USER_IDS</code>, or set trusted
-              <code>app_metadata.inventory_staff</code> and at least one
-              hospital ID in <code>app_metadata.inventory_hospital_ids</code>.
+              {summaryError instanceof InventoryApiError &&
+              summaryError.code === "INVENTORY_HOSPITAL_SCOPE_REQUIRED"
+                ? "Your account is assigned inventory staff access, but has no hospital IDs configured. Ask an administrator to assign at least one hospital ID in app_metadata.inventory_hospital_ids (e.g. [1, 2]), or grant full access via INVENTORY_STAFF_USER_IDS."
+                : "This account is signed in but is not assigned to inventory access. Ask an administrator to add your Supabase user ID to INVENTORY_STAFF_USER_IDS, or set trusted app_metadata.inventory_staff and at least one hospital ID in app_metadata.inventory_hospital_ids."}
             </p>
+            {summaryError instanceof InventoryApiError &&
+              Boolean(
+                (summaryError.details as { userId?: string } | undefined)?.userId,
+              ) && (
+                <p className="inventory-muted" style={{ marginTop: "8px" }}>
+                  Your Supabase user ID:{" "}
+                  <code>
+                    {(summaryError.details as { userId: string }).userId}
+                  </code>
+                </p>
+              )}
             <button
               className="btn btn--secondary"
-              onClick={loadSummary}
+              disabled={summaryLoading}
+              onClick={() => loadSummary({ refreshSession: true })}
               type="button"
             >
-              Check access again
+              {summaryLoading ? "Checking access..." : "Check access again"}
             </button>
           </div>
         )}

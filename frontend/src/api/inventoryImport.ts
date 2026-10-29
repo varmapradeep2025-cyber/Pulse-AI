@@ -245,7 +245,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function getInventorySummary(): Promise<InventoryLedgerSummary> {
+export async function getInventorySummary(options?: {
+  refreshSession?: boolean;
+}): Promise<InventoryLedgerSummary> {
+  if (options?.refreshSession) {
+    await supabase.auth.refreshSession().catch(() => null);
+  }
   const payload = await request<{ success: true; summary: InventoryLedgerSummary }>(
     "/api/staff/inventory/summary",
   );

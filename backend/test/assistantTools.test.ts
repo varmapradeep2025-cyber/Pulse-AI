@@ -32,7 +32,7 @@ test("assistant returns accurate appointment summary for citizen with scheduled 
     departmentId: department.id,
     doctorId: doctor.id,
   });
-  const slot = avail.days[0].slots[0];
+  const slot = avail.days.flatMap((d) => d.slots)[0];
 
   const view = apptService.createAppointment(DEMO_USER, {
     hospitalId: hospital.id,
