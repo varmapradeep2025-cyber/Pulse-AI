@@ -245,11 +245,13 @@ function chunk<T>(values: T[], size: number): T[][] {
   return chunks;
 }
 
+let supabaseAvailable: boolean | null = null;
+
 function isMissingTable(error: { code?: string; message?: string }): boolean {
   return (
     error.code === "42P01" ||
     error.code === "PGRST205" ||
-    /could not find the table|does not exist|schema cache/i.test(
+    /could not find the table|does not exist|schema cache|fetch failed|ECONNREFUSED/i.test(
       error.message ?? "",
     )
   );
@@ -455,86 +457,117 @@ async function loadImportedRows(
     return null;
   }
 
-  const supabase = await database();
+  if (supabaseAvailable !== false) {
+    try {
+      const supabase = await database();
 
-  for (const kind of ["real", "synthetic"] as const) {
-    const rows: ImportedReportRow[] = [];
-    let offset = 0;
+      for (const kind of ["real", "synthetic"] as const) {
+        const rows: ImportedReportRow[] = [];
+        let offset = 0;
 
-    for (;;) {
-      let query = supabase
-        .from("inventory_daily_reports")
-        .select(
-          "report_date, hospital_id, medicine_id, medicine_name, unit, quantity_dispensed, closing_stock, minimum_stock_level, safety_stock, unmet_demand_quantity, imported_at, is_synthetic",
-        )
-        .eq("is_synthetic", kind === "synthetic")
-        .order("report_date", { ascending: true })
-        .order("hospital_id", { ascending: true })
-        .order("medicine_id", { ascending: true })
-        .order("id", { ascending: true });
+        for (;;) {
+          let query = supabase
+            .from("inventory_daily_reports")
+            .select(
+              "report_date, hospital_id, medicine_id, medicine_name, unit, quantity_dispensed, closing_stock, minimum_stock_level, safety_stock, unmet_demand_quantity, imported_at, is_synthetic",
+            )
+            .eq("is_synthetic", kind === "synthetic")
+            .order("report_date", { ascending: true })
+            .order("hospital_id", { ascending: true })
+            .order("medicine_id", { ascending: true })
+            .order("id", { ascending: true });
 
-      if (ids) {
-        query = query.in("hospital_id", ids);
-      }
+          if (ids) {
+            query = query.in("hospital_id", ids);
+          }
 
-      const { data, error } = await query.range(
-        offset,
-        offset + PAGE_SIZE - 1,
-      );
+          const { data, error } = await query.range(
+            offset,
+            offset + PAGE_SIZE - 1,
+          );
 
-      if (error) {
-        if (isMissingTable(error)) {
-          return null;
+          if (error) {
+            if (isMissingTable(error)) {
+              supabaseAvailable = false;
+              break;
+            }
+
+            throw new Error(
+              `Imported inventory lookup failed: ${error.message}`,
+            );
+          }
+
+          if (!data || data.length === 0) {
+            break;
+          }
+
+          rows.push(...(data as ImportedReportRow[]));
+
+          if (data.length < PAGE_SIZE) {
+            break;
+          }
+
+          offset += PAGE_SIZE;
         }
 
-        throw new Error(
-          `Imported inventory lookup failed: ${error.message}`,
-        );
+        if (rows.length > 0) {
+          supabaseAvailable = true;
+          return { rows, kind };
+        }
       }
-
-      if (!data || data.length === 0) {
-        break;
-      }
-
-      rows.push(...(data as ImportedReportRow[]));
-
-      if (data.length < PAGE_SIZE) {
-        break;
-      }
-
-      offset += PAGE_SIZE;
+    } catch {
+      supabaseAvailable = false;
     }
+  }
 
-    if (rows.length > 0) {
-      return { rows, kind };
-    }
+  const { getCommittedInMemoryReports } = await import("./inventoryStore.js");
+  const inMemory = getCommittedInMemoryReports(ids);
+  if (inMemory && inMemory.rows.length > 0) {
+    return {
+      rows: inMemory.rows as unknown as ImportedReportRow[],
+      kind: inMemory.kind,
+    };
   }
 
   return { rows: [], kind: "real" };
 }
 
 async function anyImportedKind(): Promise<"real" | "synthetic" | null> {
-  const supabase = await database();
+  if (supabaseAvailable !== false) {
+    try {
+      const supabase = await database();
 
-  for (const kind of ["real", "synthetic"] as const) {
-    const { count, error } = await supabase
-      .from("inventory_daily_reports")
-      .select("id", { count: "exact", head: true })
-      .eq("is_synthetic", kind === "synthetic");
+      for (const kind of ["real", "synthetic"] as const) {
+        const { count, error } = await supabase
+          .from("inventory_daily_reports")
+          .select("id", { count: "exact", head: true })
+          .eq("is_synthetic", kind === "synthetic");
 
-    if (error) {
-      if (isMissingTable(error)) {
-        return null;
+        if (error) {
+          if (isMissingTable(error)) {
+            supabaseAvailable = false;
+            break;
+          }
+
+          throw new Error(
+            `Imported inventory lookup failed: ${error.message}`,
+          );
+        }
+
+        if ((count ?? 0) > 0) {
+          supabaseAvailable = true;
+          return kind;
+        }
       }
-
-      throw new Error(
-        `Imported inventory lookup failed: ${error.message}`,
-      );
+    } catch {
+      supabaseAvailable = false;
     }
+  }
 
-    if ((count ?? 0) > 0) {
-      return kind;
-    }
+  const { getCommittedInMemoryReports } = await import("./inventoryStore.js");
+  const inMemory = getCommittedInMemoryReports();
+  if (inMemory && inMemory.rows.length > 0) {
+    return inMemory.kind;
   }
 
   return null;
@@ -547,7 +580,6 @@ async function enrichImportedReferences(
     return dataset;
   }
 
-  const supabase = await database();
   const hospitalIds = dataset.hospitals.map((hospital) => hospital.id);
   const medicineIds = dataset.medicines.map((medicine) => medicine.id);
   const hospitals = new Map(
@@ -557,51 +589,93 @@ async function enrichImportedReferences(
     dataset.medicines.map((medicine) => [medicine.id, medicine]),
   );
 
-  for (const ids of chunk(hospitalIds, 200)) {
-    const { data, error } = await supabase
-      .from("hospitals")
-      .select("id, name")
-      .in("id", ids);
+  if (supabaseAvailable !== false) {
+    try {
+      const supabase = await database();
 
-    if (error) {
-      break;
+      for (const ids of chunk(hospitalIds, 200)) {
+        const { data, error } = await supabase
+          .from("hospitals")
+          .select("id, name")
+          .in("id", ids);
+
+        if (error) {
+          if (isMissingTable(error)) {
+            supabaseAvailable = false;
+          }
+          break;
+        }
+
+        for (const row of data ?? []) {
+          const id = positiveInteger(row.id);
+
+          if (id !== null) {
+            hospitals.set(id, { id, name: String(row.name ?? `Hospital ${id}`) });
+          }
+        }
+      }
+
+      for (const ids of chunk(medicineIds, 200)) {
+        const { data, error } = await supabase
+          .from("medicines")
+          .select("id, name, category, criticality, unit")
+          .in("id", ids);
+
+        if (error) {
+          if (isMissingTable(error)) {
+            supabaseAvailable = false;
+          }
+          break;
+        }
+
+        for (const row of data ?? []) {
+          const id = positiveInteger(row.id);
+
+          if (id === null) {
+            continue;
+          }
+
+          const existing = medicines.get(id);
+
+          medicines.set(id, {
+            id,
+            name: String(row.name ?? existing?.name ?? `Medicine ${id}`),
+            category: String(row.category ?? existing?.category ?? ""),
+            criticality: String(row.criticality ?? existing?.criticality ?? ""),
+            unit: String(row.unit ?? existing?.unit ?? "units"),
+          });
+        }
+      }
+    } catch {
+      supabaseAvailable = false;
     }
+  }
 
-    for (const row of data ?? []) {
-      const id = positiveInteger(row.id);
+  const { CATALOG_HOSPITALS, CATALOG_MEDICINES } = await import("../data/catalog.js");
+  const catHospMap = new Map(CATALOG_HOSPITALS.map((h) => [h.hospital_id, h]));
+  const catMedMap = new Map(CATALOG_MEDICINES.map((m) => [m.medicine_id, m]));
 
-      if (id !== null) {
-        hospitals.set(id, { id, name: String(row.name ?? `Hospital ${id}`) });
+  for (const [id, hosp] of hospitals.entries()) {
+    if (hosp.name === `Hospital ${id}`) {
+      const found = catHospMap.get(id);
+      if (found) {
+        hospitals.set(id, { id, name: found.hospital_name });
       }
     }
   }
 
-  for (const ids of chunk(medicineIds, 200)) {
-    const { data, error } = await supabase
-      .from("medicines")
-      .select("id, name, category, criticality, unit")
-      .in("id", ids);
-
-    if (error) {
-      break;
-    }
-
-    for (const row of data ?? []) {
-      const id = positiveInteger(row.id);
-
-      if (id === null) {
-        continue;
+  for (const [id, med] of medicines.entries()) {
+    if (med.name === `Medicine ${id}` || med.category === "Imported inventory") {
+      const found = catMedMap.get(id);
+      if (found) {
+        medicines.set(id, {
+          id,
+          name: found.generic_name,
+          category: found.category,
+          criticality: found.criticality,
+          unit: found.unit,
+        });
       }
-
-      const existing = medicines.get(id);
-
-      medicines.set(id, {
-        id,
-        name: String(row.name ?? existing?.name ?? `Medicine ${id}`),
-        category: String(row.category ?? existing?.category ?? ""),
-        criticality: String(row.criticality ?? existing?.criticality ?? ""),
-        unit: String(row.unit ?? existing?.unit ?? "units"),
-      });
     }
   }
 

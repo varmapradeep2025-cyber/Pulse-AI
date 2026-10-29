@@ -4,6 +4,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { Link } from "react-router-dom";
 import {
   InventoryApiError,
   confirmInventoryImport,
@@ -808,6 +809,49 @@ export default function InventoryImportPage() {
                     : `Confirm import (${preview.acceptedCount})`}
               </button>
             </div>
+
+            {importResult && (
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  padding: "1.25rem",
+                  borderRadius: "var(--radius, 8px)",
+                  background: "var(--color-primary-soft, #eff6ff)",
+                  border: "2px solid var(--color-primary, #2563eb)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "1.5rem" }}>🚀</span>
+                  <div>
+                    <h3 style={{ margin: 0, color: "var(--color-primary-dark, #1e40af)" }}>
+                      Inventory Dataset Ready for Scenario Simulation
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--color-text-muted, #475569)" }}>
+                      Your imported inventory ({importResult.importedCount} records) is now active and immediately connects to all five disruption stress tests.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <Link
+                    to="/operations/scenarios"
+                    className="btn btn--primary"
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                  >
+                    Simulate 5 Scenarios with This Inventory →
+                  </Link>
+                  <Link
+                    to="/operations/intelligence"
+                    className="btn btn--secondary"
+                    style={{ textDecoration: "none" }}
+                  >
+                    View Operational Intelligence
+                  </Link>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </div>
