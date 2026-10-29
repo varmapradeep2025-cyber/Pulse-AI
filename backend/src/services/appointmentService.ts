@@ -549,6 +549,18 @@ export class AppointmentService {
       calledAt: null,
     });
 
+    const userPhone =
+      typeof input.phoneNumber === "string" && input.phoneNumber.trim().length > 0
+        ? input.phoneNumber.trim()
+        : undefined;
+
+    if (appointment.userId && userPhone) {
+      this.notifications.updatePreferences(appointment.userId, {
+        phoneNumber: userPhone,
+        smsEnabled: true,
+      });
+    }
+
     if (appointment.userId) {
       if (appointment.status === "confirmed") {
         this.notifications.sendImmediateNotification({
@@ -559,6 +571,7 @@ export class AppointmentService {
           message: `Your appointment at ${appointment.hospitalName} (${appointment.departmentName}) with ${appointment.doctorName} is confirmed for ${appointment.scheduledAt}. Token: ${appointment.digitalToken ?? "Assigned upon check-in"}.`,
           link: "/citizen/appointments",
           recipientEmail: user.email,
+          recipientPhone: userPhone,
         }).catch(() => {});
 
         this.notifications.scheduleAppointmentReminders({
@@ -571,6 +584,7 @@ export class AppointmentService {
           scheduledAt: appointment.scheduledAt,
           digitalToken: appointment.digitalToken,
           userEmail: user.email,
+          phoneNumber: userPhone,
         });
       } else {
         this.notifications.sendImmediateNotification({

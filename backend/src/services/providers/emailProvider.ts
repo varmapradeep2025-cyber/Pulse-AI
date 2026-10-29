@@ -109,7 +109,7 @@ export class ResendEmailProvider implements EmailProvider {
 /* Branded Email Templates (HTML + Plain Text)                         */
 /* ------------------------------------------------------------------ */
 
-function emailFrame(title: string, contentHtml: string): string {
+export function emailFrame(title: string, contentHtml: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>

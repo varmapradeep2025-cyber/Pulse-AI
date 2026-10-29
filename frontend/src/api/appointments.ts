@@ -162,6 +162,7 @@ export interface AppointmentSelection {
 export interface CreateAppointmentInput extends AppointmentSelection {
   slotId: string;
   patientName: string;
+  phoneNumber?: string;
 }
 
 export interface CreateWalkInInput {

@@ -20,6 +20,7 @@ import {
   type EmailProvider,
   MockEmailProvider,
   ResendEmailProvider,
+  emailFrame,
   renderAppointmentCancelledEmail,
   renderAppointmentConfirmedEmail,
   renderAppointmentReminderEmail,
@@ -344,11 +345,28 @@ export class NotificationService {
 
     // 2. Email
     if (prefs.emailEnabled && input.recipientEmail) {
+      const targetUrl = input.link
+        ? `${this.appUrl}${input.link.startsWith("/") ? "" : "/"}${input.link}`
+        : `${this.appUrl}/citizen/appointments`;
+
+      const content = `
+        <h2 style="color: #ffffff; margin-top: 0; font-size: 22px;">${input.title}</h2>
+        <p style="font-size: 15px; color: #e2e8f0; line-height: 1.6; margin: 16px 0;">${input.message}</p>
+        <div style="margin: 32px 0 24px;">
+          <a href="${targetUrl}" style="display: inline-block; padding: 14px 28px; background-color: #38bdf8; color: #0f172a; font-weight: 700; text-decoration: none; border-radius: 8px; font-size: 15px;">
+            Open Citizen Queue Portal &rarr;
+          </a>
+        </div>
+        <p style="font-size: 13px; color: #94a3b8; margin-top: 20px;">
+          Direct link: <a href="${targetUrl}" style="color: #38bdf8; text-decoration: underline; word-break: break-all;">${targetUrl}</a>
+        </p>
+      `;
+
       const emailResult = await this.emailProvider.sendEmail({
         to: input.recipientEmail,
         subject: `Pulse AI: ${input.title}`,
-        html: `<p><strong>${input.title}</strong></p><p>${input.message}</p>`,
-        text: `Pulse AI: ${input.title}\n${input.message}`,
+        html: emailFrame(input.title, content),
+        text: `Pulse AI: ${input.title}\n\n${input.message}\n\nView details: ${targetUrl}`,
       });
       results.push(emailResult);
     }
@@ -527,7 +545,7 @@ function buildNotificationService(): NotificationService {
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM_EMAIL;
   const fast2smsApiKey = process.env.FAST2SMS_API_KEY;
-  const appUrl = process.env.APP_URL;
+  const appUrl = process.env.APP_URL || "https://pulse-ai-ruby.vercel.app";
 
   const emailProvider: EmailProvider = resendApiKey
     ? new ResendEmailProvider(resendApiKey, resendFrom)

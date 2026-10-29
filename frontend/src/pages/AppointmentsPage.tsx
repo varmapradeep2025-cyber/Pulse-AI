@@ -570,6 +570,7 @@ export default function AppointmentsPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [doctorId, setDoctorId] = useState("");
   const [patientName, setPatientName] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
 
   const [availability, setAvailability] =
     useState<AppointmentAvailability | null>(null);
@@ -818,6 +819,7 @@ export default function AppointmentsPage() {
         doctorId,
         slotId: selectedSlotId,
         patientName: patientName.trim(),
+        phoneNumber: patientPhone.trim() || undefined,
       });
 
       applyUpdate(
@@ -1005,6 +1007,20 @@ export default function AppointmentsPage() {
                     placeholder="Name for this appointment"
                     autoComplete="name"
                     required
+                  />
+                </label>
+
+                <label className="appointment-name" style={{ marginTop: "12px" }}>
+                  Mobile number for SMS alerts (optional)
+                  <input
+                    type="tel"
+                    value={patientPhone}
+                    maxLength={15}
+                    onChange={(event) =>
+                      setPatientPhone(event.target.value)
+                    }
+                    placeholder="e.g. 9876543210 (10-digit Indian mobile)"
+                    autoComplete="tel"
                   />
                 </label>
 

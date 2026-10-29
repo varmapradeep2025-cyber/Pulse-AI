@@ -177,6 +177,7 @@ export interface CreateAppointmentInput {
   doctorId?: unknown;
   slotId?: unknown;
   patientName?: unknown;
+  phoneNumber?: unknown;
 }
 
 export interface RescheduleAppointmentInput {

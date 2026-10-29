@@ -122,19 +122,26 @@ export class Fast2SMSProvider implements SmsProvider {
 
       const data = (await response.json()) as {
         return?: boolean;
+        status_code?: number;
         request_id?: string;
-        message?: string[];
+        message?: string | string[];
       };
 
       if (!response.ok || !data.return) {
+        const errorMsg = data.message
+          ? (Array.isArray(data.message) ? data.message.join(", ") : String(data.message))
+          : `HTTP ${response.status}`;
+        console.warn(`[SMS Fast2SMS] Delivery failed to ${tenDigit}: ${errorMsg}`);
         return {
           channel: "sms",
           recipient: normalized,
           status: "failed",
           provider: this.name,
-          errorMessage: `Fast2SMS error: ${data.message?.join(", ") ?? response.status}`,
+          errorMessage: `Fast2SMS error: ${errorMsg}`,
         };
       }
+
+      console.log(`[SMS Fast2SMS] SMS successfully sent to ${tenDigit}! Request ID: ${data.request_id}`);
 
       return {
         channel: "sms",
