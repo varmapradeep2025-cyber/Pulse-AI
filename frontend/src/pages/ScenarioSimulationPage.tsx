@@ -45,23 +45,12 @@ function formatNumber(value: number | null | undefined): string {
   return String(value);
 }
 
-function riskBadgeClass(risk: string): string {
-  switch (risk) {
-    case "CRITICAL":
-      return "intel-badge intel-badge--CRITICAL";
-    case "RED":
-    case "HIGH":
-      return "intel-badge intel-badge--HIGH";
-    case "YELLOW":
-    case "MEDIUM":
-      return "intel-badge intel-badge--MEDIUM";
-    case "GREEN":
-    case "LOW":
-      return "intel-badge intel-badge--LOW";
-    default:
-      return "intel-badge";
-  }
+function simRiskBadgeClass(risk: string): string {
+  const r = (risk || "").toUpperCase();
+  return `sim-risk-badge sim-risk-badge--${r}`;
 }
+
+
 
 function buildDeterministicExplanation(result: ScenarioResponse): string {
   const worst = result.scenario?.worst_risk_label;
@@ -107,6 +96,24 @@ function normalizeRiskCategory(label?: string | null): "Low" | "Caution" | "High
   return "Unknown";
 }
 
+// SVG chart colors for dark theme
+const CHART = {
+  grid: "rgba(38,52,73,0.9)",
+  axisText: "#94A3B8",
+  axis: "#334155",
+  projected: "#14B8A6",
+  safety: "#F87171",
+  safetyBar: "#FBBF24",
+  shortage: "#F97316",
+  baseline: "#94A3B8",
+  disruption: "#FBBF24",
+  intervention: "#22C55E",
+  donutLow: "#22C55E",
+  donutCaution: "#FBBF24",
+  donutHigh: "#EF4444",
+  donutUnknown: "#64748B",
+};
+
 export default function ScenarioSimulationPage() {
   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -146,7 +153,7 @@ export default function ScenarioSimulationPage() {
     try {
       saveScenarioReport(result, selectedScenarioId);
       setSaveStatus("Report saved to Reports page.");
-    } catch (err) {
+    } catch {
       setSaveStatus("Failed to save report.");
     }
   }
@@ -219,6 +226,9 @@ export default function ScenarioSimulationPage() {
         ? "Database data (Supabase)"
         : "Data source unavailable";
 
+  const sourceLabelClass =
+    result?.source === "demo" ? "sim-source-label sim-source-label--demo" : "sim-source-label sim-source-label--db";
+
   const hospitalRiskCats = useMemo(() => {
     if (!result?.results) return { Low: 0, Caution: 0, High: 0, Unknown: 0 };
     const counts = { Low: 0, Caution: 0, High: 0, Unknown: 0 } as Record<string, number>;
@@ -249,7 +259,6 @@ export default function ScenarioSimulationPage() {
 
   const depletionSeries = useMemo(() => {
     if (!result?.results) return [];
-    // Use first representative item with days array; prefer item with most days
     let best: any = null;
     for (const r of result.results) {
       if (r.days && r.days.length > 0) {
@@ -267,8 +276,7 @@ export default function ScenarioSimulationPage() {
 
   const interventionData = useMemo(() => {
     if (!result?.results) return [];
-    // Aggregate across all results for same scope where possible
-    const items = result.results.slice(0, 10); // limit for readability
+    const items = result.results.slice(0, 10);
     return items.map((r: any) => {
       const baseline = r.baseline?.projected_remaining_stock ?? r.starting_stock;
       const afterDisruption = (r.projected_remaining_stock_before_redistribution !== undefined && r.projected_remaining_stock_before_redistribution !== null)
@@ -289,70 +297,46 @@ export default function ScenarioSimulationPage() {
   const unitForHosp = result?.results?.find((r) => r.medicine?.unit)?.medicine?.unit || "";
 
   return (
-    <div className="container page">
-      <header className="page__header">
-        <h1>Five Scenarios Simulation</h1>
-        <p>
-          Simulate supply-chain disruptions with data-grounded metrics and interactive charts.
+    <div className="container sim-page">
+      {/* Header */}
+      <header className="sim-header">
+        <h1 className="sim-header__title">Scenario Simulation</h1>
+        <p className="sim-header__subtitle">
+          Simulate supply-chain disruptions and compare baseline, disruption, and intervention outcomes.
         </p>
+        <span className="sim-disclaimer">⚠ Prototype — results use demonstration or synthetic data unless real inventory has been imported</span>
       </header>
 
-      <section style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <div>
-          <h2 style={{ marginBottom: "0.5rem" }}>Select a scenario</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: "0.75rem",
-            }}
-          >
-            {SCENARIOS.map((scenario) => (
-              <button
-                key={scenario.id}
-                type="button"
-                onClick={() => setSelectedScenarioId(scenario.id)}
-                style={{
-                  textAlign: "left",
-                  padding: "1rem",
-                  borderRadius: "var(--radius)",
-                  border:
-                    selectedScenarioId === scenario.id
-                      ? "2px solid var(--color-primary)"
-                      : "1px solid var(--color-border)",
-                  background:
-                    selectedScenarioId === scenario.id
-                      ? "var(--color-primary-soft)"
-                      : "var(--color-surface)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "border-color 0.15s ease, background 0.15s ease",
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>
-                  {scenario.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "var(--color-text-muted)",
-                  }}
-                >
-                  {scenario.description}
-                </div>
-              </button>
-            ))}
-          </div>
+      {/* Scenario selector + controls */}
+      <div className="sim-panel">
+        <p className="sim-panel__title">
+          <span className="sim-panel__title-icon">📋</span>
+          Select a scenario
+        </p>
+        <div className="sim-scenario-grid">
+          {SCENARIOS.map((scenario) => (
+            <button
+              key={scenario.id}
+              type="button"
+              className={`sim-scenario-btn${selectedScenarioId === scenario.id ? " sim-scenario-btn--active" : ""}`}
+              onClick={() => setSelectedScenarioId(scenario.id)}
+              aria-pressed={selectedScenarioId === scenario.id}
+            >
+              <span className="sim-scenario-btn__name">{scenario.name}</span>
+              <span className="sim-scenario-btn__desc">{scenario.description}</span>
+            </button>
+          ))}
         </div>
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div className="sim-actions" style={{ marginTop: "1rem" }}>
           <button
             type="button"
             className="btn btn--primary"
             onClick={handleRunSimulation}
             disabled={selectedScenarioId === null || loading}
+            aria-busy={loading}
           >
-            {loading ? "Running Simulation..." : "Run Simulation"}
+            {loading ? "Running Simulation…" : "Run Simulation"}
           </button>
           {result && selectedScenarioId !== null && (
             <button
@@ -363,127 +347,115 @@ export default function ScenarioSimulationPage() {
               Save Report
             </button>
           )}
+          {saveStatus && (
+            <span
+              className={`sim-status-msg ${
+                saveStatus.includes("Failed") || saveStatus.includes("Cannot")
+                  ? "sim-status-msg--error"
+                  : "sim-status-msg--success"
+              }`}
+            >
+              {saveStatus}
+            </span>
+          )}
         </div>
+      </div>
 
-        {saveStatus && (
-          <div
-            style={{
-              padding: "0.6rem 0.9rem",
-              borderRadius: "var(--radius-sm)",
-              background: saveStatus.includes("Failed") || saveStatus.includes("Cannot")
-                ? "var(--color-danger-soft)"
-                : "var(--color-primary-soft)",
-              color: saveStatus.includes("Failed") || saveStatus.includes("Cannot")
-                ? "var(--color-danger)"
-                : "var(--color-primary-dark)",
-              fontSize: "0.9rem",
-            }}
-          >
-            {saveStatus}
-          </div>
-        )}
-      </section>
-
+      {/* Loading */}
       {loading && (
-        <div className="container page">
-          <LoadingState label="Running scenario simulation..." />
+        <div className="container">
+          <LoadingState label="Running scenario simulation…" />
         </div>
       )}
 
+      {/* Error */}
       {error && !loading && (
-        <section
-          style={{
-            padding: "1rem",
-            borderRadius: "var(--radius)",
-            background: "var(--color-danger-soft)",
-            color: "var(--color-danger)",
-            border: "1px solid rgba(179, 38, 30, 0.35)",
-          }}
-        >
+        <div className="sim-error-box" role="alert">
           <strong>Error:</strong> {error}
           {(error.toLowerCase().includes("session") ||
             error.toLowerCase().includes("401")) && (
-            <div style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
+            <div style={{ marginTop: "0.5rem", fontSize: "0.88rem" }}>
               You may need to sign in again.
             </div>
           )}
-        </section>
+        </div>
       )}
 
+      {/* Results */}
       {result && !loading && (
-        <section style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-lg)",
-              padding: "1rem 1.1rem",
-              boxShadow: "var(--shadow-card)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-              <div>
-                <div style={{ fontWeight: 700 }}>AI explanation (deterministic)</div>
-                <div style={{ color: "var(--color-text-muted)", fontSize: "0.92rem", marginTop: "0.25rem" }}>
-                  {buildDeterministicExplanation(result)}
-                </div>
+        <>
+          {/* Source + explanation */}
+          <div className="sim-panel">
+            <div className="sim-source-bar">
+              <div style={{ flex: 1 }}>
+                <p className="sim-explanation">{buildDeterministicExplanation(result)}</p>
+                <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                  Explanation is deterministic and generated from simulation output — not a language model.
+                </p>
               </div>
-              <div style={{ fontSize: "0.9rem" }}>
-                <strong>Source:</strong> {sourceLabel}
-              </div>
+              <span className={sourceLabelClass}>{sourceLabel}</span>
             </div>
           </div>
 
+          {/* KPI row */}
           {kpis && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "0.75rem",
-              }}
-            >
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Hospitals affected</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.hospitalsAffected}</div>
+            <div className="sim-kpi-grid">
+              <div className="sim-kpi">
+                <div className="sim-kpi__label">Hospitals affected</div>
+                <div className="sim-kpi__value">{kpis.hospitalsAffected}</div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Distinct products at risk</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.distinctProducts}</div>
+              <div className="sim-kpi">
+                <div className="sim-kpi__label">Distinct products at risk</div>
+                <div className="sim-kpi__value">{kpis.distinctProducts}</div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Hospitals below safety stock</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.belowSafety}</div>
+              <div className={`sim-kpi${kpis.belowSafety > 0 ? " sim-kpi--warning" : ""}`}>
+                <div className="sim-kpi__label">Below safety stock</div>
+                <div className="sim-kpi__value">{kpis.belowSafety}</div>
+                <div className="sim-kpi__sub">hospital-medicine pairs</div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Aggregate projected shortage</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.aggregateShortage === null ? "Unavailable" : kpis.aggregateShortage}</div>
+              <div className={`sim-kpi${(kpis.aggregateShortage ?? 0) > 0 ? " sim-kpi--danger" : ""}`}>
+                <div className="sim-kpi__label">Aggregate projected shortage</div>
+                <div className="sim-kpi__value">
+                  {kpis.aggregateShortage === null ? "Unavailable" : kpis.aggregateShortage}
+                </div>
+                {kpis.aggregateShortage !== null && <div className="sim-kpi__sub">units</div>}
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Baseline projected shortage</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.baselineShortage === null ? "Unavailable" : kpis.baselineShortage}</div>
+              <div className="sim-kpi">
+                <div className="sim-kpi__label">Baseline projected shortage</div>
+                <div className="sim-kpi__value">
+                  {kpis.baselineShortage === null ? "—" : kpis.baselineShortage}
+                </div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Additional shortage vs baseline</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.additionalShortage === null ? "Unavailable" : kpis.additionalShortage}</div>
+              <div className={`sim-kpi${(kpis.additionalShortage ?? 0) > 0 ? " sim-kpi--danger" : ""}`}>
+                <div className="sim-kpi__label">Additional vs baseline</div>
+                <div className="sim-kpi__value">
+                  {kpis.additionalShortage === null ? "—" : kpis.additionalShortage}
+                </div>
+                <div className="sim-kpi__sub">shortage units</div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Proposed redistribution qty</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.redistributionQty} (simulated)</div>
+              <div className={`sim-kpi${kpis.redistributionQty > 0 ? " sim-kpi--success" : ""}`}>
+                <div className="sim-kpi__label">Proposed redistribution</div>
+                <div className="sim-kpi__value">{kpis.redistributionQty}</div>
+                <div className="sim-kpi__sub">units (simulated)</div>
               </div>
-              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase" }}>Disruption duration</div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{kpis.disruptionDuration ?? "—"} days</div>
+              <div className="sim-kpi sim-kpi--primary">
+                <div className="sim-kpi__label">Disruption duration</div>
+                <div className="sim-kpi__value">{kpis.disruptionDuration ?? "—"}</div>
+                {kpis.disruptionDuration && <div className="sim-kpi__sub">days</div>}
               </div>
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.9rem" }}>
-            <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
-              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 1: Inventory vs. Safety Stock — Grouped Bar Chart</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Compare projected remaining inventory against safety stock for each hospital</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>X-axis: Hospital names | Y-axis: Inventory quantity{unitForHosp ? ` (${unitForHosp})` : ""}</div>
+          {/* Charts row 1 */}
+          <div className="sim-chart-grid">
+            {/* Chart 1: Inventory vs Safety Stock */}
+            <div className="sim-chart-card">
+              <p className="sim-chart-card__title">Inventory vs. Safety Stock</p>
+              <p className="sim-chart-card__desc">
+                Projected remaining inventory vs. safety-stock threshold per hospital (up to 10 results shown).
+              </p>
               {sortedResults.length > 0 ? (
-                <svg width="100%" height="240" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid meet">
+                <svg width="100%" height="220" viewBox="0 0 320 220" preserveAspectRatio="xMidYMid meet" aria-label="Grouped bar chart: inventory vs safety stock by hospital">
                   {(() => {
                     const topItems = sortedResults.slice(0, 10);
                     const maxVal = Math.max(1, ...topItems.map((x: any) => Math.max(x.safety_stock || 0, x.projected_remaining_stock || 0)));
@@ -496,13 +468,13 @@ export default function ScenarioSimulationPage() {
                       const hospName = item.hospital?.hospital_name || `H${item.hospital_id}`;
                       return (
                         <g key={idx}>
-                          <rect x={x} y={170 - hSafety} width={barW} height={hSafety} fill="#f59e0b">
+                          <rect x={x} y={170 - hSafety} width={barW} height={hSafety} fill={CHART.safetyBar} opacity="0.85">
                             <title>{`Hospital: ${hospName}\nSafety stock: ${item.safety_stock} ${unitForHosp}\nProduct: ${item.medicine?.generic_name}`}</title>
                           </rect>
-                          <rect x={x + barW} y={170 - hProj} width={barW} height={hProj} fill="#2563eb">
+                          <rect x={x + barW} y={170 - hProj} width={barW} height={hProj} fill={CHART.projected} opacity="0.9">
                             <title>{`Hospital: ${hospName}\nProduct: ${item.medicine?.generic_name}\nProjected remaining stock: ${item.projected_remaining_stock} ${unitForHosp}\nSafety stock: ${item.safety_stock} ${unitForHosp}`}</title>
                           </rect>
-                          <text x={x + barW} y={195} fontSize="7" textAnchor="middle" transform={`rotate(-45 ${x + barW},195)`}>
+                          <text x={x + barW} y={195} fontSize="7" textAnchor="middle" fill={CHART.axisText} transform={`rotate(-45 ${x + barW},195)`}>
                             {hospName.length > 14 ? hospName.slice(0, 14) + "…" : hospName}
                           </text>
                         </g>
@@ -515,31 +487,37 @@ export default function ScenarioSimulationPage() {
                     const val = Math.round(maxVal * t);
                     return (
                       <g key={`g1-${idx}`}>
-                        <line x1="35" y1={y} x2="310" y2={y} stroke="#e2e8f0" strokeDasharray="2 2" />
-                        <text x="30" y={y + 3} fontSize="7" textAnchor="end" fill="#64748b">{val}</text>
+                        <line x1="35" y1={y} x2="310" y2={y} stroke={CHART.grid} strokeDasharray="2 2" />
+                        <text x="30" y={y + 3} fontSize="7" textAnchor="end" fill={CHART.axisText}>{val}</text>
                       </g>
                     );
                   })}
-                  <line x1="35" y1="170" x2="310" y2="170" stroke="#cbd5e1" />
-                  <text x="170" y="230" fontSize="8" textAnchor="middle" fill="#475569">Hospital</text>
+                  <line x1="35" y1="170" x2="310" y2="170" stroke={CHART.axis} />
+                  <text x="170" y="215" fontSize="8" textAnchor="middle" fill={CHART.axisText}>Hospital</text>
                 </svg>
               ) : (
-                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No data</div>
+                <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>No data available</p>
               )}
-              <div style={{ display: "flex", gap: "0.8rem", fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.3rem" }}>
-                <span>■ Projected remaining stock (Series 1)</span>
-                <span>■ Safety stock (Series 2)</span>
+              <div className="sim-chart-legend">
+                <span><span className="sim-chart-legend__dot" style={{ background: CHART.safetyBar }}></span>Safety stock</span>
+                <span><span className="sim-chart-legend__dot" style={{ background: CHART.projected }}></span>Projected remaining stock</span>
               </div>
             </div>
 
-            <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
-              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 2: Hospital Risk Distribution — Donut Chart</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Number of hospitals in each risk category (from simulation risk categories)</div>
+            {/* Chart 2: Risk Distribution Donut */}
+            <div className="sim-chart-card">
+              <p className="sim-chart-card__title">Hospital Risk Distribution</p>
+              <p className="sim-chart-card__desc">Number of hospital-medicine combinations in each risk category.</p>
               {result.results && result.results.length > 0 ? (
-                <svg width="100%" height="200" viewBox="0 0 200 200">
+                <svg width="100%" height="180" viewBox="0 0 200 180" aria-label="Donut chart: risk category distribution">
                   {(() => {
                     const total = result.results.length;
-                    const colors: Record<string, string> = { Low: "#16a34a", Caution: "#f59e0b", High: "#dc2626", Unknown: "#94a3b8" };
+                    const colors: Record<string, string> = {
+                      Low: CHART.donutLow,
+                      Caution: CHART.donutCaution,
+                      High: CHART.donutHigh,
+                      Unknown: CHART.donutUnknown,
+                    };
                     let angle = 0;
                     const cats = ["Low", "Caution", "High", "Unknown"] as const;
                     return cats.map((cat) => {
@@ -550,266 +528,287 @@ export default function ScenarioSimulationPage() {
                       const end = angle + pct * 2 * Math.PI;
                       angle = end;
                       const x1 = 100 + 60 * Math.cos(start);
-                      const y1 = 100 + 60 * Math.sin(start);
+                      const y1 = 90 + 60 * Math.sin(start);
                       const x2 = 100 + 60 * Math.cos(end);
-                      const y2 = 100 + 60 * Math.sin(end);
+                      const y2 = 90 + 60 * Math.sin(end);
                       const large = pct > 0.5 ? 1 : 0;
-                      const path = `M 100 100 L ${x1} ${y1} A 60 60 0 ${large} 1 ${x2} ${y2} Z`;
-                      return <path key={cat} d={path} fill={colors[cat]}><title>{`${cat}: ${count} (${Math.round(pct * 100)}%)`}</title></path>;
+                      const path = `M 100 90 L ${x1} ${y1} A 60 60 0 ${large} 1 ${x2} ${y2} Z`;
+                      return (
+                        <path key={cat} d={path} fill={colors[cat]} opacity="0.9">
+                          <title>{`${cat}: ${count} (${Math.round(pct * 100)}%)`}</title>
+                        </path>
+                      );
                     });
                   })()}
-                  <circle cx="100" cy="100" r="30" fill="white" />
+                  <circle cx="100" cy="90" r="30" fill="#111B2E" />
+                  <text x="100" y="86" textAnchor="middle" fontSize="9" fill={CHART.axisText}>Total</text>
+                  <text x="100" y="98" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--color-text)">{result.results.length}</text>
                 </svg>
               ) : (
-                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No data</div>
+                <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>No data available</p>
               )}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                <span>■ Low risk (Green)</span>
-                <span>■ Caution (Yellow)</span>
-                <span>■ High risk (Red)</span>
-                <span>■ Unknown</span>
-              </div>
               {result.results && result.results.length > 0 && (
-                <div style={{ fontSize: "0.8rem", marginTop: "0.3rem" }}>
-                  Low: {hospitalRiskCats.Low} ({Math.round((hospitalRiskCats.Low / result.results.length) * 100)}%), Caution: {hospitalRiskCats.Caution} ({Math.round((hospitalRiskCats.Caution / result.results.length) * 100)}%), High: {hospitalRiskCats.High} ({Math.round((hospitalRiskCats.High / result.results.length) * 100)}%){hospitalRiskCats.Unknown > 0 ? `, Unknown: ${hospitalRiskCats.Unknown} (${Math.round((hospitalRiskCats.Unknown / result.results.length) * 100)}%)` : ""}
+                <div className="sim-chart-legend">
+                  <span><span className="sim-chart-legend__dot" style={{ background: CHART.donutLow }}></span>Low ({hospitalRiskCats.Low})</span>
+                  <span><span className="sim-chart-legend__dot" style={{ background: CHART.donutCaution }}></span>Caution ({hospitalRiskCats.Caution})</span>
+                  <span><span className="sim-chart-legend__dot" style={{ background: CHART.donutHigh }}></span>High ({hospitalRiskCats.High})</span>
+                  {hospitalRiskCats.Unknown > 0 && <span><span className="sim-chart-legend__dot" style={{ background: CHART.donutUnknown }}></span>Unknown ({hospitalRiskCats.Unknown})</span>}
                 </div>
               )}
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.9rem" }}>
-            <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
-              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 3: Inventory Depletion — Line Chart</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Projected inventory over time during the disruption window</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>X-axis: Day of disruption | Y-axis: Projected inventory quantity{depletionSeries[0]?.unit ? ` (${depletionSeries[0].unit})` : ""}</div>
+          {/* Charts row 2 */}
+          <div className="sim-chart-grid">
+            {/* Chart 3: Depletion Line */}
+            <div className="sim-chart-card">
+              <p className="sim-chart-card__title">Inventory Depletion Over Time</p>
+              <p className="sim-chart-card__desc">
+                Projected inventory over the disruption window (most data-rich item shown).
+                {depletionSeries[0]?.unit ? ` Unit: ${depletionSeries[0].unit}.` : ""}
+              </p>
               {depletionSeries.length > 0 ? (
-                <svg width="100%" height="220" viewBox="0 0 300 220">
+                <svg width="100%" height="200" viewBox="0 0 300 200" aria-label="Line chart: inventory depletion over time">
                   {(() => {
                     const maxV = Math.max(1, ...depletionSeries.map((d: any) => Math.max(d.projected, d.safety || 0)));
                     const pts = depletionSeries.map((d: any, i: number) => {
                       const x = 30 + (i / Math.max(1, depletionSeries.length - 1)) * 250;
-                      const y = 170 - (d.projected / maxV) * 140;
+                      const y = 155 - (d.projected / maxV) * 120;
                       return `${x},${y}`;
                     }).join(" ");
                     const sPts = depletionSeries.map((d: any, i: number) => {
                       const x = 30 + (i / Math.max(1, depletionSeries.length - 1)) * 250;
-                      const y = 170 - ((d.safety || 0) / maxV) * 140;
+                      const y = 155 - ((d.safety || 0) / maxV) * 120;
                       return `${x},${y}`;
                     }).join(" ");
                     return (
                       <>
-                        <polyline points={pts} fill="none" stroke="#2563eb" strokeWidth="2" />
-                        <polyline points={sPts} fill="none" stroke="#dc2626" strokeWidth="2" strokeDasharray="4 2" />
-                        {depletionSeries.map((d: any, i: number) => {
-                          const x = 30 + (i / Math.max(1, depletionSeries.length - 1)) * 250;
-                          const y = 170 - (d.projected / maxV) * 140;
-                          return <circle key={i} cx={x} cy={y} r="3" fill="#2563eb"><title>{`Day ${d.day}: ${d.projected} ${d.unit}. Safety stock threshold: ${d.safety} ${d.unit}.`}</title></circle>;
-                        })}
-                        {/* Y-axis ticks and grid */}
                         {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
-                          const y = 170 - t * 140;
+                          const y = 155 - t * 120;
                           const val = Math.round(maxV * t);
                           return (
                             <g key={`grid-${idx}`}>
-                              <line x1="30" y1={y} x2="280" y2={y} stroke="#e2e8f0" strokeDasharray="2 2" />
-                              <text x="25" y={y + 3} fontSize="7" textAnchor="end" fill="#64748b">{val}</text>
+                              <line x1="30" y1={y} x2="280" y2={y} stroke={CHART.grid} strokeDasharray="2 2" />
+                              <text x="25" y={y + 3} fontSize="7" textAnchor="end" fill={CHART.axisText}>{val}</text>
                             </g>
                           );
                         })}
-                        {/* X-axis ticks */}
+                        <polyline points={pts} fill="none" stroke={CHART.projected} strokeWidth="2.5" />
+                        <polyline points={sPts} fill="none" stroke={CHART.safety} strokeWidth="2" strokeDasharray="4 2" />
+                        {depletionSeries.map((d: any, i: number) => {
+                          const x = 30 + (i / Math.max(1, depletionSeries.length - 1)) * 250;
+                          const y = 155 - (d.projected / maxV) * 120;
+                          return (
+                            <circle key={i} cx={x} cy={y} r="3" fill={CHART.projected}>
+                              <title>{`Day ${d.day}: ${d.projected} ${d.unit}. Safety: ${d.safety} ${d.unit}.`}</title>
+                            </circle>
+                          );
+                        })}
                         {depletionSeries.map((d: any, i: number) => {
                           if (i % Math.max(1, Math.floor(depletionSeries.length / 5)) === 0 || i === depletionSeries.length - 1) {
                             const x = 30 + (i / Math.max(1, depletionSeries.length - 1)) * 250;
-                            return <text key={`x-${i}`} x={x} y="190" fontSize="7" textAnchor="middle" fill="#64748b">{d.day}</text>;
+                            return <text key={`x-${i}`} x={x} y="175" fontSize="7" textAnchor="middle" fill={CHART.axisText}>{d.day}</text>;
                           }
                           return null;
                         })}
-                        <text x="155" y="210" fontSize="8" textAnchor="middle" fill="#475569">Day of disruption</text>
+                        <text x="155" y="192" fontSize="8" textAnchor="middle" fill={CHART.axisText}>Day of disruption</text>
+                        <line x1="30" y1="155" x2="280" y2="155" stroke={CHART.axis} />
                       </>
                     );
                   })()}
-                  <line x1="30" y1="170" x2="280" y2="170" stroke="#cbd5e1" />
                 </svg>
               ) : (
-                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No daily projections available from API response.</div>
+                <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>No daily projections in API response.</p>
               )}
-              <div style={{ display: "flex", gap: "0.8rem", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                <span>— Projected inventory</span>
-                <span>-- Safety-stock threshold</span>
+              <div className="sim-chart-legend">
+                <span><span className="sim-chart-legend__dot" style={{ background: CHART.projected }}></span>Projected inventory</span>
+                <span><span className="sim-chart-legend__dot" style={{ background: CHART.safety }}></span>Safety-stock threshold</span>
               </div>
             </div>
 
-            <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
-              <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 4: Product Risk Comparison — Bar Chart</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Inventory risk across products</div>
-              <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Metric: Aggregate projected shortage by product{productRisk[0]?.unit ? ` (${productRisk[0].unit})` : ""} when available; otherwise hospitals at risk per product</div>
+            {/* Chart 4: Product Risk */}
+            <div className="sim-chart-card">
+              <p className="sim-chart-card__title">Product Risk Comparison</p>
+              <p className="sim-chart-card__desc">
+                Aggregate projected shortage by product{productRisk[0]?.unit ? ` (${productRisk[0].unit})` : ""}. Up to 6 products shown.
+              </p>
               {productRisk.length > 0 ? (
-                <svg width="100%" height="200" viewBox="0 0 300 200">
+                <svg width="100%" height="180" viewBox="0 0 300 180" aria-label="Bar chart: shortage by product">
                   {productRisk.slice(0, 6).map((p, idx) => {
                     const maxS = Math.max(1, ...productRisk.slice(0, 6).map((x) => x.shortage));
                     const barH = (p.shortage / maxS) * 120;
-                    const y = 170 - barH;
+                    const y = 150 - barH;
                     const x = 40 + idx * 40;
                     return (
                       <g key={idx}>
-                        <rect x={x} y={y} width="28" height={barH} fill="#ea580c">
+                        <rect x={x} y={y} width="28" height={barH} fill={CHART.shortage} opacity="0.85">
                           <title>{`${p.name} (${p.unit}): shortage ${p.shortage}, hospitals at risk ${p.atRiskHospitals}`}</title>
                         </rect>
-                        <text x={x + 14} y={185} fontSize="7" textAnchor="middle" transform={`rotate(-45 ${x + 14},185)`}>
+                        <text x={x + 14} y={165} fontSize="7" textAnchor="middle" fill={CHART.axisText} transform={`rotate(-45 ${x + 14},165)`}>
                           {p.name.slice(0, 12)}
                         </text>
                       </g>
                     );
                   })}
-                  <line x1="30" y1="170" x2="280" y2="170" stroke="#cbd5e1" />
+                  <line x1="30" y1="150" x2="280" y2="150" stroke={CHART.axis} />
                 </svg>
               ) : (
-                <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No product-level shortage data available.</div>
+                <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>No product-level shortage data available.</p>
               )}
             </div>
           </div>
 
-            <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", padding: "0.9rem" }}>
-            <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Chart 5: Intervention Impact — Before-and-After Chart (grouped bars)</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.2rem" }}>Same-window no-disruption baseline vs disrupted projection vs projected inventory after simulated redistribution</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.4rem" }}>Redistribution is labeled as simulated, not a real inventory movement. Values use actual simulation results from the same scope.</div>
+          {/* Chart 5: Intervention Impact */}
+          <div className="sim-chart-card">
+            <p className="sim-chart-card__title">Intervention Impact — Before vs. After</p>
+            <p className="sim-chart-card__desc">
+              Baseline (no-disruption) vs. disrupted projection vs. projected stock after simulated redistribution. Redistribution is simulated — not a real inventory movement.
+            </p>
             {interventionData.length > 0 ? (
-              <svg width="100%" height="220" viewBox="0 0 340 220">
-                  {interventionData.slice(0, 6).map((d: any, idx: number) => {
+              <svg width="100%" height="200" viewBox="0 0 340 200" aria-label="Grouped bar chart: baseline vs disruption vs post-intervention">
+                {interventionData.slice(0, 6).map((d: any, idx: number) => {
                   const maxV = Math.max(1, ...interventionData.slice(0, 6).map((x: any) => Math.max(x.baseline || 0, x.afterDisruption || 0, x.postIntervention || 0)));
                   const barW = 18;
-                  const gap = 10;
-                  const groupW = barW * 3 + gap;
+                  const groupW = barW * 3 + 4;
                   const x = 40 + idx * (groupW + 12);
-                  const hBase = ((d.baseline || 0) / maxV) * 150;
-                  const hAfter = ((d.afterDisruption || 0) / maxV) * 150;
-                  const hPost = ((d.postIntervention || 0) / maxV) * 150;
+                  const hBase = ((d.baseline || 0) / maxV) * 140;
+                  const hAfter = ((d.afterDisruption || 0) / maxV) * 140;
+                  const hPost = ((d.postIntervention || 0) / maxV) * 140;
                   return (
                     <g key={idx}>
-                      <rect x={x} y={170 - hBase} width={barW} height={hBase} fill="#94a3b8"><title>{`Baseline: ${d.baseline} ${d.unit}`}</title></rect>
-                      <rect x={x + barW + 2} y={170 - hAfter} width={barW} height={hAfter} fill="#f59e0b"><title>{`After disruption: ${d.afterDisruption} ${d.unit}`}</title></rect>
-                      <rect x={x + (barW + 2) * 2} y={170 - hPost} width={barW} height={hPost} fill="#16a34a"><title>{`Post-intervention (simulated): ${d.postIntervention} ${d.unit}`}</title></rect>
-                      <text x={x + groupW / 2} y={185} fontSize="7" textAnchor="middle" transform={`rotate(-45 ${x + groupW / 2},185)`}>
+                      <rect x={x} y={155 - hBase} width={barW} height={hBase} fill={CHART.baseline} opacity="0.75">
+                        <title>{`Baseline: ${d.baseline} ${d.unit}`}</title>
+                      </rect>
+                      <rect x={x + barW + 2} y={155 - hAfter} width={barW} height={hAfter} fill={CHART.disruption} opacity="0.85">
+                        <title>{`After disruption: ${d.afterDisruption} ${d.unit}`}</title>
+                      </rect>
+                      <rect x={x + barW * 2 + 4} y={155 - hPost} width={barW} height={hPost} fill={CHART.intervention} opacity="0.9">
+                        <title>{`Post-intervention: ${d.postIntervention} ${d.unit}${d.redistributed ? " (redistribution applied)" : ""}`}</title>
+                      </rect>
+                      <text x={x + barW * 1.5 + 2} y={172} fontSize="6.5" textAnchor="middle" fill={CHART.axisText} transform={`rotate(-40 ${x + barW * 1.5 + 2},172)`}>
                         {d.label.slice(0, 18)}
                       </text>
                     </g>
                   );
                 })}
-                <line x1="30" y1="170" x2="320" y2="170" stroke="#cbd5e1" />
+                {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
+                  const maxV = Math.max(1, ...interventionData.slice(0, 6).map((x: any) => Math.max(x.baseline || 0, x.afterDisruption || 0, x.postIntervention || 0)));
+                  const y = 155 - t * 140;
+                  const val = Math.round(maxV * t);
+                  return (
+                    <g key={`ig-${idx}`}>
+                      <line x1="35" y1={y} x2="330" y2={y} stroke={CHART.grid} strokeDasharray="2 2" />
+                      <text x="30" y={y + 3} fontSize="6.5" textAnchor="end" fill={CHART.axisText}>{val}</text>
+                    </g>
+                  );
+                })}
+                <line x1="35" y1="155" x2="330" y2="155" stroke={CHART.axis} />
               </svg>
             ) : (
-              <div style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Insufficient data for before/after comparison.</div>
+              <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>Intervention impact data unavailable.</p>
             )}
-            <div style={{ display: "flex", gap: "0.8rem", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-              <span>■ Baseline projected stock</span>
-              <span>■ After disruption</span>
-              <span>■ Projected after simulated redistribution</span>
+            <div className="sim-chart-legend">
+              <span><span className="sim-chart-legend__dot" style={{ background: CHART.baseline }}></span>Baseline</span>
+              <span><span className="sim-chart-legend__dot" style={{ background: CHART.disruption }}></span>After disruption</span>
+              <span><span className="sim-chart-legend__dot" style={{ background: CHART.intervention }}></span>Post-intervention</span>
             </div>
           </div>
 
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-              <h2 style={{ margin: 0 }}>Detailed results table</h2>
-              <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-                Sort by:{" "}
+          {/* Detailed results table */}
+          <div className="sim-panel">
+            <div className="sim-sort-bar">
+              <h2>Detailed Results</h2>
+              <div className="sim-sort-controls">
+                <span>Sort by</span>
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)" }}
+                  aria-label="Sort by column"
                 >
                   <option value="risk_label">Risk</option>
                   <option value="hospital">Hospital</option>
                   <option value="product">Product</option>
-                  <option value="projected_remaining_stock">Projected stock</option>
-                  <option value="estimated_shortage_quantity">Shortage</option>
-                  <option value="stock_out_day">Stock-out day</option>
+                  <option value="starting_stock">Starting stock</option>
+                  <option value="safety_stock">Safety stock</option>
+                  <option value="projected_remaining_stock">Projected remaining</option>
+                  <option value="estimated_shortage_quantity">Shortage qty</option>
+                  <option value="stock_out_day">Stockout day</option>
                 </select>
                 <button
                   type="button"
-                  className="btn btn--tiny"
+                  className="btn btn--secondary"
+                  style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem" }}
                   onClick={() => setSortAsc((v) => !v)}
-                  style={{ marginLeft: "0.4rem" }}
+                  aria-label={sortAsc ? "Sort descending" : "Sort ascending"}
                 >
-                  {sortAsc ? "Asc" : "Desc"}
+                  {sortAsc ? "↑ Asc" : "↓ Desc"}
                 </button>
               </div>
             </div>
-            {sortedResults.length > 0 ? (
-              <div style={{ overflowX: "auto", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
-                  <thead>
-                    <tr style={{ background: "var(--color-surface-soft)" }}>
-                      <th style={{ textAlign: "left", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Hospital</th>
-                      <th style={{ textAlign: "left", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Product</th>
-                      <th style={{ textAlign: "left", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Unit</th>
-                      <th style={{ textAlign: "right", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Starting stock</th>
-                      <th style={{ textAlign: "right", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Safety stock</th>
-                      <th style={{ textAlign: "right", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Projected stock</th>
-                      <th style={{ textAlign: "right", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Shortage</th>
-                      <th style={{ textAlign: "right", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Stock-out day</th>
-                      <th style={{ textAlign: "left", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Risk</th>
-                      <th style={{ textAlign: "left", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>Intervention</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedResults.map((item, idx) => (
-                      <tr key={idx} style={{ borderTop: "1px solid var(--color-border)" }}>
-                        <td style={{ padding: "0.6rem 0.8rem" }}>{item.hospital?.hospital_name || item.hospital_id}</td>
-                        <td style={{ padding: "0.6rem 0.8rem" }}>{item.medicine?.generic_name || item.medicine_id}</td>
-                        <td style={{ padding: "0.6rem 0.8rem" }}>{item.medicine?.unit || "—"}</td>
-                        <td style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>{formatNumber(item.starting_stock)}</td>
-                        <td style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>{formatNumber(item.safety_stock)}</td>
-                        <td style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>{formatNumber(item.projected_remaining_stock)}</td>
-                        <td style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>{formatNumber(item.estimated_shortage_quantity)}</td>
-                        <td style={{ padding: "0.6rem 0.8rem", textAlign: "right" }}>{item.stock_out_day === null ? "None" : formatNumber(item.stock_out_day)}</td>
-                        <td style={{ padding: "0.6rem 0.8rem" }}>
-                          <span className={riskBadgeClass(item.risk_label || item.risk_level || "")}>
-                            {item.risk_label || item.risk_level || "—"}
-                          </span>
+
+            <div className="sim-table-wrapper">
+              <table className="sim-table" aria-label="Scenario simulation detailed results">
+                <thead>
+                  <tr>
+                    <th data-align="left">Hospital</th>
+                    <th data-align="left">Product</th>
+                    <th data-align="right">Starting stock</th>
+                    <th data-align="right">Safety stock</th>
+                    <th data-align="right">Proj. remaining</th>
+                    <th data-align="right">Shortage qty</th>
+                    <th data-align="right">Stockout day</th>
+                    <th data-align="left">Risk</th>
+                    <th data-align="left">Redistribution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedResults.map((item: any, idx: number) => {
+                    const risk = item.risk_label || item.risk_level || "UNKNOWN";
+                    const redistInfo = item.redistribution
+                      ? `From H${item.redistribution.source_hospital_id}: ${item.redistribution.transfer_units} ${item.medicine?.unit || "units"}`
+                      : "—";
+                    return (
+                      <tr key={`${item.hospital_id}-${item.medicine_id}-${idx}`}>
+                        <td data-align="left">{item.hospital?.hospital_name || `Hospital ${item.hospital_id}`}</td>
+                        <td data-align="left">{item.medicine?.generic_name || `Medicine ${item.medicine_id}`}</td>
+                        <td data-align="right">{formatNumber(item.starting_stock)}</td>
+                        <td data-align="right">{formatNumber(item.safety_stock)}</td>
+                        <td data-align="right">{formatNumber(item.projected_remaining_stock)}</td>
+                        <td data-align="right">{formatNumber(item.estimated_shortage_quantity)}</td>
+                        <td data-align="right">{item.stock_out_day !== null && item.stock_out_day !== undefined ? item.stock_out_day : "—"}</td>
+                        <td data-align="left">
+                          <span className={simRiskBadgeClass(risk)}>{risk}</span>
                         </td>
-                        <td style={{ padding: "0.6rem 0.8rem" }}>
-                          {item.redistribution ? `Transfer ${item.redistribution.transfer_units} from ${item.redistribution.donor_hospital_name} (simulated)` : (item.recommendations?.[0]?.type === "reallocate" ? "Reallocation suggested" : "—")}
-                        </td>
+                        <td data-align="left" style={{ fontSize: "0.8rem" }}>{redistInfo}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-state__icon">📊</div>
-                <h3 className="empty-state__title">No results</h3>
-                <p className="empty-state__description">
-                  The simulation returned no results.
-                </p>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Scenario assumptions */}
+            {result.scenario?.scenario && (
+              <div className="sim-assumptions" style={{ marginTop: "1rem" }}>
+                <p className="sim-assumptions__title">Scenario assumptions</p>
+                <ul className="sim-assumptions__list">
+                  {result.scenario.scenario.duration_days !== undefined && (
+                    <li>Disruption duration: {result.scenario.scenario.duration_days} days</li>
+                  )}
+                  {result.scenario.scenario.demand_change_percent !== undefined && (
+                    <li>Demand change: {result.scenario.scenario.demand_change_percent > 0 ? "+" : ""}{result.scenario.scenario.demand_change_percent}%</li>
+                  )}
+                  {result.scenario.scenario.transport_delay_days !== undefined && result.scenario.scenario.transport_delay_days > 0 && (
+                    <li>Transport delay: {result.scenario.scenario.transport_delay_days} days</li>
+                  )}
+                  {result.scenario.scenario.disruption_type && (
+                    <li>Disruption type: {result.scenario.scenario.disruption_type}</li>
+                  )}
+                </ul>
               </div>
             )}
           </div>
-
-          {result.scenario?.assumptions && result.scenario.assumptions.length > 0 && (
-            <div
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1rem 1.1rem",
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: "0.4rem" }}>Assumptions</div>
-              <ul style={{ margin: 0, paddingLeft: "1.2rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                {result.scenario.assumptions.map((assumption, idx) => (
-                  <li key={idx} style={{ fontSize: "0.9rem" }}>
-                    {assumption}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {result.scenario?.disclaimer && (
-            <div className="demo-note">{result.scenario.disclaimer}</div>
-          )}
-        </section>
+        </>
       )}
     </div>
   );
