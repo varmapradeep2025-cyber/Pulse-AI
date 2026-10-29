@@ -306,12 +306,19 @@ export class TwilioSmsProvider implements SmsProvider {
 
       const data = (await response.json()) as {
         sid?: string;
+        code?: number;
+        message?: string;
         error_code?: number | null;
         error_message?: string | null;
       };
 
-      if (!response.ok || data.error_code) {
-        const errorMsg = data.error_message || `Twilio HTTP ${response.status}`;
+      if (!response.ok || data.error_code || data.code) {
+        const rawMsg = data.error_message || data.message || `Twilio HTTP ${response.status}`;
+        const extraNote =
+          data.code === 21654
+            ? " (ContentSid Required: Meta/Twilio requires pre-approved Content Templates for business WhatsApp)"
+            : "";
+        const errorMsg = `${rawMsg}${extraNote}`;
         console.warn(`[SMS Twilio] Delivery failed to ${normalized}: ${errorMsg}`);
         return {
           channel: "sms",
@@ -343,3 +350,40 @@ export class TwilioSmsProvider implements SmsProvider {
     }
   }
 }
+
+export class CompositeSmsProvider implements SmsProvider {
+  readonly name: string;
+
+  constructor(private readonly providers: SmsProvider[]) {
+    this.name = providers.map((p) => p.name).join("+");
+  }
+
+  async sendSms(message: SmsMessage): Promise<NotificationDispatchResult> {
+    const results = await Promise.allSettled(
+      this.providers.map((p) => p.sendSms(message)),
+    );
+
+    const accepted = results.find(
+      (r) =>
+        r.status === "fulfilled" &&
+        (r.value.status === "accepted" || r.value.status === "delivered"),
+    );
+    if (accepted && accepted.status === "fulfilled") {
+      return accepted.value;
+    }
+
+    const firstFulfilled = results.find((r) => r.status === "fulfilled");
+    if (firstFulfilled && firstFulfilled.status === "fulfilled") {
+      return firstFulfilled.value;
+    }
+
+    return {
+      channel: "sms",
+      recipient: message.phoneNumber,
+      status: "failed",
+      provider: this.name,
+      errorMessage: "All providers failed dispatch.",
+    };
+  }
+}
+

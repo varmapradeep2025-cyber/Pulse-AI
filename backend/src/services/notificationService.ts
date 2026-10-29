@@ -35,7 +35,9 @@ import {
   MockSmsProvider,
   Fast2SMSProvider,
   TwilioSmsProvider,
+  CompositeSmsProvider,
 } from "./providers/smsProvider.js";
+import { TelegramNotificationProvider } from "./providers/telegramProvider.js";
 
 export class NotificationError extends Error {
   constructor(
@@ -546,6 +548,8 @@ export class NotificationService {
 function buildNotificationService(): NotificationService {
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM_EMAIL;
+  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  const telegramChatId = process.env.TELEGRAM_CHAT_ID;
   const twilioSid = process.env.TWILIO_ACCOUNT_SID;
   const twilioToken = process.env.TWILIO_AUTH_TOKEN;
   const twilioFrom = process.env.TWILIO_FROM_NUMBER;
@@ -556,17 +560,32 @@ function buildNotificationService(): NotificationService {
     ? new ResendEmailProvider(resendApiKey, resendFrom)
     : new MockEmailProvider();
 
-  let smsProvider: SmsProvider;
+  const mobileProviders: SmsProvider[] = [];
+
+  if (telegramToken) {
+    mobileProviders.push(
+      new TelegramNotificationProvider(telegramToken, telegramChatId, appUrl),
+    );
+  }
+
   if (twilioSid && twilioToken && twilioFrom) {
-    smsProvider = new TwilioSmsProvider(twilioSid, twilioToken, twilioFrom);
+    mobileProviders.push(new TwilioSmsProvider(twilioSid, twilioToken, twilioFrom));
   } else if (fast2smsApiKey) {
-    smsProvider = new Fast2SMSProvider(fast2smsApiKey);
-  } else {
+    mobileProviders.push(new Fast2SMSProvider(fast2smsApiKey));
+  }
+
+  let smsProvider: SmsProvider;
+  if (mobileProviders.length === 0) {
     smsProvider = new MockSmsProvider();
+  } else if (mobileProviders.length === 1) {
+    smsProvider = mobileProviders[0];
+  } else {
+    smsProvider = new CompositeSmsProvider(mobileProviders);
   }
 
   const activeProviders: string[] = [];
   if (resendApiKey) activeProviders.push("resend-email");
+  if (telegramToken) activeProviders.push("telegram-bot");
   if (twilioSid && twilioToken && twilioFrom) {
     activeProviders.push(
       twilioFrom.startsWith("whatsapp:") ? "twilio-whatsapp" : "twilio-sms",
