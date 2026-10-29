@@ -20,6 +20,7 @@ import {
 import type { HospitalMatchResult } from "../data/hospitalMatching";
 
 import type { AssistantMessage } from "../types/domain";
+import { queryLiveAssistant } from "../api/notifications";
 
 let messageCounter = 0;
 
@@ -27,11 +28,12 @@ let messageCounter = 0;
  * Quick-start examples. Picking one starts a full triage flow.
  */
 const QUICK_START_CHIPS = [
+  "What is my appointment status?",
+  "What is my queue token and position?",
+  "Show my notifications",
   "I have a fever and cold",
   "I have chest pain",
   "I need a routine checkup",
-  "I think I have a fracture",
-  "I need a dengue test",
 ];
 
 function makeMessage(
@@ -124,10 +126,32 @@ export default function AssistantPage() {
   /*
    * Handle a user message.
    */
-  const respondToUser = (userText: string) => {
+  const respondToUser = async (userText: string) => {
     appendMessage(
       makeMessage("user", userText),
     );
+
+    const lower = userText.toLowerCase();
+    const isQueueOrApptQuery =
+      lower.includes("appointment") ||
+      lower.includes("queue") ||
+      lower.includes("token") ||
+      lower.includes("notification") ||
+      lower.includes("wait") ||
+      lower.includes("position") ||
+      lower.includes("turn");
+
+    if (isQueueOrApptQuery) {
+      try {
+        const liveResponse = await queryLiveAssistant({ query: userText });
+        if (liveResponse && liveResponse.answer) {
+          appendMessage(makeMessage("assistant", liveResponse.answer));
+          return;
+        }
+      } catch {
+        // Fall back to triage matcher
+      }
+    }
 
     const result = matchHospitalNeeds(userText);
 

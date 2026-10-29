@@ -2,6 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import LanguageSelector from "./LanguageSelector";
+import NotificationBell from "./NotificationBell";
+import NotificationPreferencesModal from "./NotificationPreferencesModal";
 import {
   CITIZEN_NAV_ITEMS,
   HOSPITAL_NAV_ITEMS,
@@ -36,6 +38,7 @@ export default function Navbar({
   const { t } = useLanguage();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const items = NAV_ITEMS[variant];
   const portalSwitch = PORTAL_SWITCH[variant];
@@ -102,6 +105,7 @@ export default function Navbar({
               {portalSwitch.label}
             </Link>
           )}
+          <NotificationBell onOpenPreferences={() => setPrefsOpen(true)} />
           <LanguageSelector compact />
           <button
             type="button"
@@ -114,6 +118,11 @@ export default function Navbar({
           </button>
         </div>
       </div>
+
+      <NotificationPreferencesModal
+        isOpen={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+      />
 
       {menuOpen && (
         <nav className="navbar__mobile" aria-label="Mobile navigation">

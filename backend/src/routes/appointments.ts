@@ -7,6 +7,7 @@ import {
   appointmentAuth,
   requireAppointmentStaff,
 } from "../middleware/appointmentAuth.js";
+import { assistantToolsService } from "../services/assistantToolsService.js";
 
 const router = Router();
 const staffRouter = Router();
@@ -235,6 +236,39 @@ staffRouter.patch("/:id/status", (req, res) => {
       success: true,
       appointment,
     });
+  } catch (error) {
+    sendAppointmentError(res, error);
+  }
+});
+
+
+router.post("/assistant-query", async (req, res) => {
+  try {
+    const user = req.appointmentUser!;
+    const { query, hospitalId, departmentId } = req.body ?? {};
+
+    if (typeof query !== "string" || query.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        code: "INVALID_QUERY",
+        message: "A non-empty query string is required.",
+      });
+      return;
+    }
+
+    if (user.isStaff && typeof hospitalId === "string" && typeof departmentId === "string") {
+      const response = await assistantToolsService.handleDoctorQuery(
+        user,
+        hospitalId,
+        departmentId,
+        query,
+      );
+      res.status(200).json({ success: true, ...response });
+      return;
+    }
+
+    const response = await assistantToolsService.handleCitizenQuery(user, query);
+    res.status(200).json({ success: true, ...response });
   } catch (error) {
     sendAppointmentError(res, error);
   }

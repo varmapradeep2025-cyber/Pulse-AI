@@ -33,6 +33,10 @@ import {
   type AppointmentAccessIdentity,
   isStaffAuthorizedForHospital,
 } from "./appointmentAccess.js";
+import {
+  type NotificationService,
+  notificationService,
+} from "./notificationService.js";
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -86,6 +90,7 @@ interface AppointmentServiceOptions {
   now?: () => Date;
   hospitals?: readonly AppointmentHospital[];
   repository?: AppointmentRepository;
+  notificationService?: NotificationService;
 }
 
 interface ResolvedSelection {
@@ -269,6 +274,7 @@ export class AppointmentService {
   private readonly now: () => Date;
   private readonly hospitals: readonly AppointmentHospital[];
   private readonly repository: AppointmentRepository;
+  private readonly notifications: NotificationService;
 
   constructor(options: AppointmentServiceOptions = {}) {
     this.now = options.now ?? (() => new Date());
@@ -276,6 +282,12 @@ export class AppointmentService {
       options.hospitals ?? APPOINTMENT_DEMO_HOSPITALS;
     this.repository =
       options.repository ?? new InMemoryAppointmentRepository();
+    this.notifications =
+      options.notificationService ?? notificationService;
+  }
+
+  getNotificationService(): NotificationService {
+    return this.notifications;
   }
 
   private get appointments(): Appointment[] {
@@ -292,6 +304,7 @@ export class AppointmentService {
 
   resetDemoData(): void {
     this.repository.reset();
+    this.notifications.reset();
   }
 
   getCatalog() {
@@ -536,6 +549,42 @@ export class AppointmentService {
       calledAt: null,
     });
 
+    if (appointment.userId) {
+      if (appointment.status === "confirmed") {
+        this.notifications.sendImmediateNotification({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          type: "appointment_confirmed",
+          title: "Appointment Confirmed",
+          message: `Your appointment at ${appointment.hospitalName} (${appointment.departmentName}) with ${appointment.doctorName} is confirmed for ${appointment.scheduledAt}. Token: ${appointment.digitalToken ?? "Assigned upon check-in"}.`,
+          link: "/citizen/appointments",
+          recipientEmail: user.email,
+        }).catch(() => {});
+
+        this.notifications.scheduleAppointmentReminders({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          patientName: appointment.patientName,
+          hospitalName: appointment.hospitalName,
+          departmentName: appointment.departmentName,
+          doctorName: appointment.doctorName,
+          scheduledAt: appointment.scheduledAt,
+          digitalToken: appointment.digitalToken,
+          userEmail: user.email,
+        });
+      } else {
+        this.notifications.sendImmediateNotification({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          type: "appointment_confirmed",
+          title: "Appointment Requested",
+          message: `Your appointment request for ${appointment.hospitalName} (${appointment.departmentName}) with ${appointment.doctorName} has been submitted for doctor approval.`,
+          link: "/citizen/appointments",
+          recipientEmail: user.email,
+        }).catch(() => {});
+      }
+    }
+
     return this.toView(appointment);
   }
 
@@ -658,6 +707,33 @@ export class AppointmentService {
       now,
     );
 
+    if (appointment.userId) {
+      this.notifications.cancelAppointmentReminders(appointment.id);
+      if (appointment.status === "confirmed") {
+        this.notifications.scheduleAppointmentReminders({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          patientName: appointment.patientName,
+          hospitalName: appointment.hospitalName,
+          departmentName: appointment.departmentName,
+          doctorName: appointment.doctorName,
+          scheduledAt: appointment.scheduledAt,
+          digitalToken: appointment.digitalToken,
+          userEmail: user.email,
+        });
+      }
+
+      this.notifications.sendImmediateNotification({
+        userId: appointment.userId,
+        appointmentId: appointment.id,
+        type: "appointment_rescheduled",
+        title: "Appointment Rescheduled",
+        message: `Your appointment at ${appointment.hospitalName} (${appointment.departmentName}) has been rescheduled to ${appointment.scheduledAt}. Token: ${appointment.digitalToken ?? "N/A"}.`,
+        link: "/citizen/appointments",
+        recipientEmail: user.email,
+      }).catch(() => {});
+    }
+
     return this.toView(appointment);
   }
 
@@ -696,6 +772,19 @@ export class AppointmentService {
       "patient",
       now,
     );
+
+    if (appointment.userId) {
+      this.notifications.cancelAppointmentReminders(appointment.id);
+      this.notifications.sendImmediateNotification({
+        userId: appointment.userId,
+        appointmentId: appointment.id,
+        type: "appointment_cancelled",
+        title: "Appointment Cancelled",
+        message: `Your appointment at ${appointment.hospitalName} (${appointment.departmentName}) scheduled for ${appointment.scheduledAt} has been cancelled.`,
+        link: "/citizen/appointments",
+        recipientEmail: user.email,
+      }).catch(() => {});
+    }
 
     return this.toView(appointment);
   }
@@ -777,6 +866,18 @@ export class AppointmentService {
       "patient",
       now,
     );
+
+    if (appointment.userId) {
+      this.notifications.sendImmediateNotification({
+        userId: appointment.userId,
+        appointmentId: appointment.id,
+        type: "queue_registered",
+        title: "Checked In & In Queue",
+        message: `You are checked in for ${appointment.hospitalName} (${appointment.departmentName})! Active Token: ${appointment.digitalToken}. Please remain nearby.`,
+        link: "/citizen/appointments",
+        recipientEmail: user.email,
+      }).catch(() => {});
+    }
 
     return this.toView(appointment);
   }
@@ -1063,10 +1164,37 @@ export class AppointmentService {
           appointment.tokenNumber,
         );
       }
+
+      if (appointment.userId) {
+        this.notifications.sendImmediateNotification({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          type: "queue_called",
+          title: "Now Calling Your Token!",
+          message: `Token ${appointment.digitalToken}: Doctor is calling you now. Please proceed to the consultation room at ${appointment.hospitalName}.`,
+          link: "/citizen/appointments",
+        }).catch(() => {});
+      }
+
+      this.notifyApproachingPatients(
+        appointment.hospitalId,
+        appointment.departmentId,
+        appointment.queueDate ?? istDateKey(now),
+      );
     }
 
     if (nextStatus === "completed") {
       appointment.completedAt = now.toISOString();
+      if (appointment.userId) {
+        this.notifications.sendImmediateNotification({
+          userId: appointment.userId,
+          appointmentId: appointment.id,
+          type: "consultation_completed",
+          title: "Consultation Completed",
+          message: `Your consultation with ${appointment.doctorName} at ${appointment.hospitalName} is complete.`,
+          link: "/citizen/appointments",
+        }).catch(() => {});
+      }
     }
 
     if (nextStatus === "cancelled") {
@@ -1362,6 +1490,44 @@ export class AppointmentService {
   ): PublicAppointment {
     const { userId: _userId, ...publicAppointment } = appointment;
     return publicAppointment;
+  }
+
+  private notifyApproachingPatients(
+    hospitalId: string,
+    departmentId: string,
+    queueDate: string,
+  ): void {
+    const activeWaiting = this.appointments
+      .filter(
+        (cand) =>
+          cand.hospitalId === hospitalId &&
+          cand.departmentId === departmentId &&
+          (cand.status === "waiting" || cand.status === "checked_in") &&
+          (cand.queueDate === queueDate ||
+            sameIstDay(cand.checkedInAt ?? cand.scheduledAt, this.now())),
+      )
+      .sort((a, b) => {
+        const tA = new Date(a.checkedInAt ?? a.scheduledAt).getTime();
+        const tB = new Date(b.checkedInAt ?? b.scheduledAt).getTime();
+        return tA - tB;
+      });
+
+    for (let index = 0; index < activeWaiting.length; index++) {
+      const patient = activeWaiting[index];
+      const patientsAhead = index;
+
+      if (patientsAhead <= 2 && patient.userId && patient.digitalToken) {
+        this.notifications.sendImmediateNotification({
+          userId: patient.userId,
+          appointmentId: patient.id,
+          type: "queue_approaching_turn",
+          title: "Approaching Your Turn!",
+          message: `Token ${patient.digitalToken}: You have ${patientsAhead} patient(s) ahead in line. Please be ready near the OPD room.`,
+          link: "/citizen/appointments",
+          metadata: { patientsAhead, digitalToken: patient.digitalToken },
+        }).catch(() => {});
+      }
+    }
   }
 
   private toView(appointment: Appointment): AppointmentView {

@@ -27,6 +27,7 @@ Healthcare data → Prediction → Risk detection → Disruption simulation
 - [Feature highlights](#feature-highlights)
   - [Hospital Intelligence](#hospital-intelligence)
   - [Citizen Appointments & Digital Queue Tokens](#citizen-appointments--digital-queue-tokens)
+  - [Multi-Channel Notification System & Outbox Scheduler](#multi-channel-notification-system--outbox-scheduler)
   - [Daily Inventory Reporting & Excel Batch Ingestion](#daily-inventory-reporting--excel-batch-ingestion)
   - [Dynamic Multi-Facility Redistribution](#dynamic-multi-facility-redistribution)
   - [Role-Based Hospital Scoping & Analytics Security](#role-based-hospital-scoping--analytics-security)
@@ -151,6 +152,19 @@ A complete outpatient department (OPD) queue and appointment engine:
 - **Private citizen snapshot API:** Authenticated endpoint (`GET /api/appointments/:id/queue-snapshot`) returning patient position, current serving token, and estimated wait times with zero cross-patient data exposure.
 - **Hospital-scoped staff queue operations:** Staff are restricted to their authorized facility IDs, managing calls, consultations, walk-in patient registrations, and no-shows.
 - **Rescheduling & cancellation integrity:** Same-day reschedules retain queue tokens; multi-day reschedules forfeit old tokens and allocate a fresh token for the target date. Cancelled tokens are never reused.
+
+
+### Multi-Channel Notification System & Outbox Scheduler
+
+A unified, multi-channel notification engine for outpatient appointments and live queue events:
+
+- **In-App Notification Center:** Realtime notification bell with unread badge counter, persistent dropdown tray, relative time markers, read/unread states, and deep-linking to live queue snapshots.
+- **Configurable Reminder Intervals:** Citizens can choose notification intervals (24h, 1h, 30m, 15m) and toggle in-app, push, email, and SMS channels independently via the Notification Preferences modal.
+- **Durable Scheduler & Outbox:** Pending reminder jobs are staged in `public.scheduled_notifications` with idempotency keys. Cancelling or rescheduling appointments automatically cancels obsolete reminder jobs.
+- **Web Push Notifications:** PWA/browser notifications via Service Worker (`public/sw.js`) and VAPID Web Push protocol (`PushProvider`).
+- **Branded Transactional Email:** Modular email dispatch (`ResendEmailProvider` & `MockEmailProvider`) with responsive HTML templates for booking confirmations, reminders, queue turn approaches, and cancellations.
+- **SMS Integration Ready:** Indian phone number normalizer (`+91` / E.164) with TRAI DLT template structures and provider abstraction (`ExotelSmsProvider` & `MockSmsProvider`).
+- **AI Copilot Live Query Integration:** Natural-language assistant tools (`queryLiveAssistant`) allowing citizens to check their appointment and queue status, and doctors to review their queue and call the next eligible patient.
 
 ### Daily Inventory Reporting & Excel Batch Ingestion
 
@@ -417,6 +431,20 @@ Pulse AI/
 | POST | `/api/staff/appointments/:id/status` | Advance patient status (`calling`, `in_consultation`, `completed`, `no_show`) |
 | POST | `/api/staff/appointments/walk-in` | Register walk-in patient with sequential token allocation |
 
+
+### Notifications & Scheduler
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/notifications` | Authenticated user notification inbox with unread count |
+| PATCH | `/api/notifications/:id/read` | Mark individual notification as read |
+| POST | `/api/notifications/mark-all-read` | Mark all user notifications as read |
+| GET | `/api/notifications/preferences` | Retrieve user notification channel and timing preferences |
+| PUT | `/api/notifications/preferences` | Update notification channels, phone number, and reminder intervals |
+| POST | `/api/notifications/push/subscribe` | Register browser push subscription endpoint and keys |
+| DELETE | `/api/notifications/push/unsubscribe` | Deactivate browser push subscription |
+| POST | `/api/notifications/process-worker` | Trigger durable outbox background delivery worker |
+| POST | `/api/appointments/assistant-query` | Authoritative AI Copilot tool endpoint for appointment & queue status |
+
 ### Inventory Ledger & Excel Batch Ingestion
 | Method | Endpoint | Description |
 |---|---|---|
@@ -447,6 +475,11 @@ reference and seed are provided in [Supabase setup & seed](#supabase-setup--seed
 | `demand_history` | Daily observed demand | `hospital_id`, `medicine_id`, `demand_date`, `demand` |
 | `orders` | Procurement orders (diagnostics) | `id`, `hospital_id`, `supplier_id`, `medicine_id`, `quantity`, `status` |
 | `scenarios` | Defined disruption scenarios | `id`, `name`, `description`, `disruption_type`, `duration_days`, `demand_change_percent`, `transport_delay_days` |
+| `notification_preferences` | User notification channel & timing settings | `user_id`, `channels`, `reminder_intervals_minutes`, `phone_number` |
+| `notifications` | Persistent in-app notifications | `id`, `user_id`, `type`, `title`, `body`, `read_at`, `reference_id` |
+| `push_subscriptions` | Web push subscription endpoints | `user_id`, `endpoint`, `p256dh`, `auth`, `active` |
+| `scheduled_notifications` | Durable outbox for timed reminders | `id`, `user_id`, `appointment_id`, `scheduled_for`, `status`, `idempotency_key` |
+| `notification_delivery_attempts` | Multi-channel audit & delivery logs | `notification_id`, `channel`, `status`, `attempt_count`, `error_message` |
 
 Audit/inventory data is handled by the application; credentials live only in
 environment variables and are never committed.
@@ -702,12 +735,12 @@ the database through the backend client.
 | frontend | `npm run dev` | Vite dev server (port 5173) |
 | frontend | `npm run build` | `tsc --noEmit` typecheck + production build |
 | frontend | `npm run preview` | Serve the built app |
-| frontend | `npm test` | Run component and routing unit tests (21 tests) |
+| frontend | `npm test` | Run component and routing unit tests (23 tests) |
 | backend | `npm run dev` | `tsx watch` dev server (port 4000) |
 | backend | `npm run build` | Compile TypeScript to `dist/` |
 | backend | `npm run start` | Run the compiled build |
 | backend | `npm run typecheck` | `tsc --noEmit` typecheck |
-| backend | `npm test` | Run complete test suite (79 tests covering queues, scenarios, forecasting, imports) |
+| backend | `npm test` | Run complete test suite (93 tests covering queues, scheduler, notifications, scenarios, forecasting, imports, and assistant tools) |
 | ml-service | `python -m uvicorn ...` | FastAPI dev server (port 8000) |
 
 ---

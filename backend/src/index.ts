@@ -11,6 +11,8 @@ import {
   staffAppointmentRouter,
 } from "./routes/appointments.js";
 import inventoryImportRouter from "./routes/inventoryImport.js";
+import notificationRouter from "./routes/notifications.js";
+
 const app = express();
 
 app.disable("x-powered-by");
@@ -23,6 +25,7 @@ app.use(intelligenceRouter);
 app.use("/api/appointments", appointmentRouter);
 app.use("/api/staff/appointments", staffAppointmentRouter);
 app.use("/api/staff/inventory", inventoryImportRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.listen(env.PORT, env.HOST, () => {
   console.log(

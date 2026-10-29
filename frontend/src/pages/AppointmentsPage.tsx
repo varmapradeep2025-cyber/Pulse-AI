@@ -6,6 +6,7 @@ import {
   type FormEvent,
 } from "react";
 import { useAuth } from "../context/AuthContext";
+import NotificationPreferencesModal from "../components/NotificationPreferencesModal";
 import AppointmentStatusBadge, {
   APPOINTMENT_STATUS_LABELS,
 } from "../components/AppointmentStatusBadge";
@@ -563,6 +564,7 @@ export default function AppointmentsPage() {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     string | null
   >(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   const [hospitalId, setHospitalId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -855,6 +857,14 @@ export default function AppointmentsPage() {
           <span>
             <strong>{appointments.length}</strong> total
           </span>
+          <button
+            type="button"
+            className="btn btn--small btn--secondary"
+            onClick={() => setPreferencesOpen(true)}
+            style={{ marginLeft: "8px" }}
+          >
+            ⚙️ Notification Settings
+          </button>
         </div>
       </header>
 
@@ -1122,6 +1132,10 @@ export default function AppointmentsPage() {
           )}
         </aside>
       </div>
+      <NotificationPreferencesModal
+        isOpen={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
+      />
     </div>
   );
 }
