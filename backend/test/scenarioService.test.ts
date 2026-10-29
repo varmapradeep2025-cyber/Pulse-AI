@@ -304,6 +304,55 @@ test("all five default scenarios include baseline comparisons", async () => {
   }
 });
 
+test("each scenario applies only its own disruption assumptions", async () => {
+  const cases = [
+    { id: 1, multiplier: 1, windowDays: 7, supplier: true },
+    { id: 2, multiplier: 1, windowDays: 3, supplier: false },
+    { id: 3, multiplier: 1.3, windowDays: 7, supplier: false },
+    { id: 4, multiplier: 1.2, windowDays: 7, supplier: false },
+    { id: 5, multiplier: 1.3, windowDays: 7, supplier: true },
+  ];
+
+  for (const entry of cases) {
+    const result = await simulateScenario(
+      entry.id,
+      provider({ loadScenario: async () => null }),
+    );
+
+    assert.equal(result.scenario.scenario.id, entry.id);
+
+    for (const item of result.results) {
+      assert.equal(item.disruption_window_days, entry.windowDays);
+      assert.equal(
+        item.effective_daily_demand,
+        Number((item.predicted_daily_demand * entry.multiplier).toFixed(2)),
+      );
+    }
+
+    assert.equal(
+      result.results.some((item) => item.supplier_disrupted),
+      entry.supplier,
+    );
+  }
+});
+
+test("scenario runs do not share mutable result state", async () => {
+  const first = await simulateScenario(
+    4,
+    provider({ loadScenario: async () => null }),
+  );
+  first.results[0].projected_remaining_stock = -1;
+  first.results[0].days[0].projected_stock = -1;
+
+  const second = await simulateScenario(
+    4,
+    provider({ loadScenario: async () => null }),
+  );
+
+  assert.ok(second.results[0].projected_remaining_stock >= 0);
+  assert.ok(second.results[0].days[0].projected_stock >= 0);
+});
+
 test("response keeps the fields consumed by the frontend", async () => {
   const result = await simulateScenario(2, provider());
   const { success, results } = {
