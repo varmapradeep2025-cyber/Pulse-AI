@@ -368,10 +368,11 @@ class SupabaseInventoryStore implements InventoryStore {
       return found;
     }
 
+    const keySet = new Set(keys);
     for (const report of inMemoryReports) {
       if (
         (datasetKind === "synthetic" ? report.is_synthetic : !report.is_synthetic) &&
-        keys.includes(report.report_key)
+        keySet.has(report.report_key)
       ) {
         found.add(report.report_key);
       }
@@ -382,25 +383,38 @@ class SupabaseInventoryStore implements InventoryStore {
     }
 
     try {
-      for (let offset = 0; offset < keys.length; offset += 100) {
-        const chunk = keys.slice(offset, offset + 100);
-        const { data, error } = await supabase
-          .from("inventory_daily_reports")
-          .select("report_key")
-          .eq("is_synthetic", datasetKind === "synthetic")
-          .in("report_key", chunk);
+      const CHUNK_SIZE = 200;
+      const chunks: string[][] = [];
+      for (let offset = 0; offset < keys.length; offset += CHUNK_SIZE) {
+        chunks.push(keys.slice(offset, offset + CHUNK_SIZE));
+      }
 
-        if (error) {
-          if (isMissingSchema(error)) {
-            supabaseStorageAvailable = false;
-            return found;
+      const CONCURRENCY = 5;
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(
+          batch.map((chunk) =>
+            supabase
+              .from("inventory_daily_reports")
+              .select("report_key")
+              .eq("is_synthetic", datasetKind === "synthetic")
+              .in("report_key", chunk),
+          ),
+        );
+
+        for (const { data, error } of results) {
+          if (error) {
+            if (isMissingSchema(error)) {
+              supabaseStorageAvailable = false;
+              return found;
+            }
+            throwStoreError(error, "existing report lookup");
           }
-          throwStoreError(error, "existing report lookup");
-        }
 
-        for (const row of data ?? []) {
-          if (typeof row.report_key === "string") {
-            found.add(row.report_key);
+          for (const row of data ?? []) {
+            if (typeof row.report_key === "string") {
+              found.add(row.report_key);
+            }
           }
         }
       }

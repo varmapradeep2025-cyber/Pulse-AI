@@ -56,6 +56,8 @@ class FakeStore implements InventoryStore {
   readonly commits: string[] = [];
   readonly summaryScopes: InventoryHospitalScope[] = [];
   readonly batches = new Map<string, InventoryBatchRecord>();
+  readonly persistedReports = new Map<string, Record<string, unknown>>();
+  failCommitOnBatchId?: string;
   private readonly existing = new Map<InventoryDatasetKind, Set<string>>();
   private counter = 0;
 
@@ -127,6 +129,21 @@ class FakeStore implements InventoryStore {
 
     if (!batch) {
       throw new InventoryError(404, "IMPORT_BATCH_NOT_FOUND", "Not found.");
+    }
+
+    if (this.failCommitOnBatchId === batchId) {
+      throw new InventoryError(
+        500,
+        "INVENTORY_STORAGE_ERROR",
+        "Simulated database insertion failure.",
+      );
+    }
+
+    if (batch.staged_rows) {
+      for (const row of batch.staged_rows) {
+        const key = `${batch.dataset_kind}|${row.report_date}|${row.hospital_id}|${row.medicine_id}`;
+        this.persistedReports.set(key, row as unknown as Record<string, unknown>);
+      }
     }
 
     this.commits.push(batchId);
@@ -618,4 +635,333 @@ test("Excel date cells are parsed as calendar dates without timezone drift", asy
   });
 
   assert.equal(results[0]?.data?.report_date, "2026-10-24");
+});
+
+function makeLargeCatalog(medicineCount: number): InventoryReferenceCatalog {
+  const medicines = [];
+  for (let i = 1; i <= medicineCount; i++) {
+    medicines.push({ id: i, name: `Medicine ${i}`, unit: "tablet" });
+  }
+  return {
+    hospitals: [{ id: 1, name: "City Hospital" }],
+    medicines,
+  };
+}
+
+async function largeWorkbookBuffer(rowCount: number): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Inventory");
+
+  sheet.addRow([...INVENTORY_TEMPLATE_COLUMNS]);
+
+  for (let i = 1; i <= rowCount; i++) {
+    sheet.addRow([
+      "2026-10-24", // report_date
+      1,            // hospital_id
+      i,            // medicine_id
+      `Medicine ${i}`, // medicine_name
+      "tablet",     // unit
+      100,          // opening_stock
+      50,           // quantity_received
+      40,           // quantity_dispensed
+      0,            // quantity_expired_or_written_off
+      0,            // adjustments
+      110,          // closing_stock (100 + 50 - 40 - 0 + 0 = 110)
+      40,           // minimum_stock_level
+      20,           // safety_stock
+      5,            // reserved_stock
+      20,           // pending_order_quantity
+      "SUP-001",    // supplier_id
+      "2026-10-20", // order_date
+      "2026-10-25", // expected_delivery_date
+      "",           // actual_delivery_date
+      5,            // typical_lead_time_days
+      false,        // stockout_flag
+      0,            // unmet_demand_quantity
+      "Synthetic demo", // data_source
+    ]);
+  }
+
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+test("valid 100-row workbook previews, stages, and persists all 100 records end-to-end", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(100) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(100);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "inventory-100.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rowCount, 100);
+  assert.equal(preview.acceptedCount, 100);
+  assert.equal(preview.rejectedCount, 0);
+  assert.equal(preview.warningCount, 0);
+
+  const imported = await service.confirm(staff, preview.batchId);
+  assert.equal(imported.importedCount, 100);
+  assert.equal(store.persistedReports.size, 100);
+});
+
+test("valid 1,999-row workbook previews, stages, and persists all 1,999 records end-to-end", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(1999) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(1999);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "inventory-1999.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rowCount, 1999);
+  assert.equal(preview.acceptedCount, 1999);
+  assert.equal(preview.rejectedCount, 0);
+
+  const imported = await service.confirm(staff, preview.batchId);
+  assert.equal(imported.importedCount, 1999);
+  assert.equal(store.persistedReports.size, 1999);
+});
+
+test("valid 2,001-row workbook previews, stages, and persists all 2,001 records without hitting previous 2,000 cap", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(2001) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(2001);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "inventory-2001.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rowCount, 2001);
+  assert.equal(preview.acceptedCount, 2001);
+  assert.equal(preview.rejectedCount, 0);
+
+  const imported = await service.confirm(staff, preview.batchId);
+  assert.equal(imported.importedCount, 2001);
+  assert.equal(store.persistedReports.size, 2001);
+});
+
+test("valid 4,500-row workbook previews, stages, and persists all 4,500 records end-to-end", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(4500) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(4500);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "inventory-4500.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rowCount, 4500);
+  assert.equal(preview.acceptedCount, 4500);
+  assert.equal(preview.rejectedCount, 0);
+  assert.equal(store.created[0]?.stagedRows.length, 4500);
+
+  const imported = await service.confirm(staff, preview.batchId);
+  assert.equal(imported.importedCount, 4500);
+  assert.equal(store.persistedReports.size, 4500);
+});
+
+test("valid 10,000-row workbook previews, stages, and persists exactly 10,000 records end-to-end", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(10000) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(10000);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "inventory-10000.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rowCount, 10000);
+  assert.equal(preview.acceptedCount, 10000);
+  assert.equal(preview.rejectedCount, 0);
+  assert.equal(store.created[0]?.stagedRows.length, 10000);
+
+  const imported = await service.confirm(staff, preview.batchId);
+  assert.equal(imported.importedCount, 10000);
+  assert.equal(store.persistedReports.size, 10000);
+});
+
+test("workbook with 10,001 data rows is rejected with clear TOO_MANY_ROWS error and not silently truncated", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(10001) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(10001);
+
+  await assert.rejects(
+    () =>
+      service.preview({
+        user: staff,
+        fileName: "inventory-10001.xlsx",
+        fileSize: buffer.length,
+        buffer,
+        datasetKind: "synthetic",
+        correctionMode: "reject",
+      }),
+    (error: unknown) => {
+      assert.equal(error instanceof InventoryError, true);
+      const invErr = error as InventoryError;
+      assert.equal(invErr.status, 422);
+      assert.equal(invErr.code, "INVENTORY_FILE_INVALID");
+      const details = invErr.details as { fileErrors?: Array<{ code: string; message: string }> };
+      assert.equal(
+        details?.fileErrors?.some((e) => e.code === "TOO_MANY_ROWS"),
+        true,
+      );
+      assert.match(
+        details?.fileErrors?.find((e) => e.code === "TOO_MANY_ROWS")?.message ?? "",
+        /A single file may contain at most 10000 inventory rows/,
+      );
+      return true;
+    },
+  );
+
+  assert.equal(store.created.length, 0);
+  assert.equal(store.persistedReports.size, 0);
+});
+
+test("missing required columns rejects workbook with MISSING_COLUMNS error", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Inventory");
+  sheet.addRow(["report_date", "hospital_id", "medicine_id"]);
+  sheet.addRow(["2026-10-24", 1, 1]);
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+  const service = serviceFor(new FakeStore());
+  await assert.rejects(
+    () =>
+      service.preview({
+        user: staff,
+        fileName: "incomplete.xlsx",
+        fileSize: buffer.length,
+        buffer,
+        datasetKind: "synthetic",
+        correctionMode: "reject",
+      }),
+    (error: unknown) => {
+      assert.equal(error instanceof InventoryError, true);
+      const invErr = error as InventoryError;
+      assert.equal(invErr.status, 422);
+      const details = invErr.details as { fileErrors?: Array<{ code: string }> };
+      assert.equal(
+        details?.fileErrors?.some((e) => e.code === "MISSING_COLUMNS"),
+        true,
+      );
+      return true;
+    },
+  );
+});
+
+test("invalid dates and unknown IDs reject rows with specific issue codes", async () => {
+  const store = new FakeStore();
+  const service = serviceFor(store);
+  const buffer = await workbookBuffer([
+    inventoryRow({ report_date: "2026-11-01" }), // future date
+    inventoryRow({ hospital_id: 999 }), // unknown hospital
+    inventoryRow({ medicine_id: 999 }), // unknown medicine
+  ]);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "invalid-fields.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rejectedCount, 3);
+  assert.equal(preview.acceptedCount, 0);
+  assert.equal(
+    preview.rows[0]?.issues.some((e) => e.code === "FUTURE_REPORT_DATE"),
+    true,
+  );
+  assert.equal(
+    preview.rows[1]?.issues.some((e) => e.code === "UNKNOWN_HOSPITAL"),
+    true,
+  );
+  assert.equal(
+    preview.rows[2]?.issues.some((e) => e.code === "UNKNOWN_MEDICINE"),
+    true,
+  );
+});
+
+test("invalid numeric fields and non-integer IDs are flagged with errors", async () => {
+  const store = new FakeStore();
+  const service = serviceFor(store);
+  const buffer = await workbookBuffer([
+    inventoryRow({ opening_stock: -10, closing_stock: 0 }),
+    inventoryRow({ closing_stock: "not-a-number" }),
+    inventoryRow({ hospital_id: 1.5 }),
+  ]);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "invalid-numbers.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  assert.equal(preview.rejectedCount, 3);
+  assert.equal(
+    preview.rows[0]?.issues.some((e) => e.code === "NEGATIVE_NOT_ALLOWED"),
+    true,
+  );
+  assert.equal(
+    preview.rows[1]?.issues.some((e) => e.code === "INVALID_NUMBER"),
+    true,
+  );
+  assert.equal(
+    preview.rows[2]?.issues.some((e) => e.code === "INVALID_INTEGER"),
+    true,
+  );
+});
+
+test("failure during database insertion prevents false success and preserves state", async () => {
+  const store = new FakeStore({ catalog: makeLargeCatalog(100) });
+  const service = serviceFor(store);
+  const buffer = await largeWorkbookBuffer(100);
+
+  const preview = await service.preview({
+    user: staff,
+    fileName: "fail-test.xlsx",
+    fileSize: buffer.length,
+    buffer,
+    datasetKind: "synthetic",
+    correctionMode: "reject",
+  });
+
+  store.failCommitOnBatchId = preview.batchId;
+
+  await assert.rejects(
+    () => service.confirm(staff, preview.batchId),
+    (error: unknown) =>
+      error instanceof InventoryError &&
+      error.code === "INVENTORY_STORAGE_ERROR" &&
+      error.status === 500,
+  );
+
+  assert.equal(store.persistedReports.size, 0);
 });

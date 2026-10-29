@@ -159,7 +159,7 @@ router.use((
       success: false,
       code: tooLarge ? "FILE_TOO_LARGE" : "INVALID_UPLOAD",
       message: tooLarge
-        ? "Workbooks must be 5 MB or smaller."
+        ? "Workbooks must be 20 MB or smaller."
         : "The workbook upload could not be read.",
     });
     return;

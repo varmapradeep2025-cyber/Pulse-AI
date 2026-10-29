@@ -269,8 +269,8 @@ function PreviewTable({ preview }: { preview: InventoryPreview }) {
       </table>
       {preview.rows.length > visibleRows.length && (
         <p className="inventory-table-note">
-          Showing the first {visibleRows.length} of {preview.rows.length} rows.
-          The import applies to every accepted row shown in the counts above.
+          Showing the first {visibleRows.length} of {preview.rowCount} rows.
+          The import applies to every accepted row ({preview.acceptedCount}) shown in the counts above.
         </p>
       )}
     </div>
@@ -772,6 +772,10 @@ export default function InventoryImportPage() {
             </div>
 
             <div className="inventory-counts">
+              <div>
+                <strong>{preview.rowCount}</strong>
+                <span>total rows</span>
+              </div>
               <div>
                 <strong>{preview.acceptedCount}</strong>
                 <span>will be imported</span>

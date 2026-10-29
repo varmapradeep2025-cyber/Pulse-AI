@@ -12,7 +12,7 @@ import type {
   InventoryRowResult,
 } from "../types/inventory.js";
 
-const MAX_DATA_ROWS = 10000;
+export const MAX_DATA_ROWS = 10000;
 const XLSX_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
 
 export interface RawInventoryRow {
@@ -583,9 +583,9 @@ export async function parseInventoryWorkbook(
   }
 
   const rows: RawInventoryRow[] = [];
-  const maxRow = Math.min(
-    worksheet.actualRowCount,
+  const maxRow = Math.max(
     worksheet.rowCount,
+    worksheet.actualRowCount,
   );
 
   for (let rowNumber = 2; rowNumber <= maxRow; rowNumber++) {
