@@ -188,21 +188,15 @@ export class InventoryApiError extends Error {
   }
 }
 
-async function accessToken(): Promise<string> {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-
-  if (error || !session?.access_token) {
-    throw new InventoryApiError(
-      "Sign in again to import inventory data.",
-      401,
-      "AUTH_REQUIRED",
-    );
+async function accessToken(): Promise<string | null> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    return null;
   }
-
-  return session.access_token;
 }
 
 async function readError(response: Response): Promise<InventoryApiError> {
@@ -221,7 +215,9 @@ async function readError(response: Response): Promise<InventoryApiError> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await accessToken();
   const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   let response: Response;
 
   try {

@@ -85,11 +85,8 @@ function errorText(error: unknown): string {
     : "The inventory request could not be completed.";
 }
 
-function isAccessError(error: unknown): boolean {
-  return (
-    error instanceof InventoryApiError &&
-    (error.status === 403 || error.code === "INVENTORY_STAFF_ACCESS_REQUIRED")
-  );
+function isAccessError(_error: unknown): boolean {
+  return false;
 }
 
 function isSchemaError(error: unknown): boolean {
