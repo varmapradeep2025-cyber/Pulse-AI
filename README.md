@@ -133,8 +133,9 @@ highest-priority items first (severity, then time-to-crisis, then order size).
 
 ### Demand forecasting
 
-A per-series 7-day demand forecast driven by a pooled ridge-regression model
-(see [Machine learning](#machine-learning)).
+Hospital Intelligence selects a seven-day forecast from the validated
+seasonal-naive, ridge, and XGBoost comparison when available (see
+[Machine learning](#machine-learning)).
 
 ### Stock-out / safety-threshold risk detection
 
@@ -360,9 +361,10 @@ Verified from the repository (`package.json`, `requirements.txt`, source):
 
 ### ML service — `ml-service/`
 - **Python 3.11+** + **FastAPI** + Pydantic + Uvicorn
-- Currently exposes only `GET /health` — **no models live here yet**
-- Note: `pandas`, `numpy`, and `scikit-learn` are **not** used; the ML model
-  lives in the TypeScript backend.
+- Exposes `GET /health` and a transparent rolling-origin comparison of
+  seasonal naive, ridge regression, and XGBoost.
+- Uses NumPy, scikit-learn, and XGBoost; the operational scenario engine also
+  retains its TypeScript ridge forecaster.
 
 ### Database
 - **Supabase** (PostgreSQL)
@@ -455,9 +457,9 @@ Pulse AI/
 | GET | `/api/staff/inventory/batches/:id` | View batch status, replacement count, and imported items |
 | GET | `/api/staff/inventory/summary` | Staff-scoped summary of latest inventory reports across facilities |
 
-The frontend calls `http://localhost:4000` for these endpoints. The Python
-`ml-service` currently exposes only `GET /health`; it is reserved for future
-model hosting.
+The frontend calls `http://localhost:4000` for these endpoints. Hospital
+Intelligence also requests a rolling-origin forecast comparison from the
+private Python `ml-service`.
 
 ---
 
@@ -503,20 +505,46 @@ at runtime on the full pooled hospital × medicine demand dataset.
 - hospital × medicine interaction one-hots (the pooled model learns how each
   facility and each medicine behaves)
 
-**Training / evaluation:**
+**Transparent model comparison:**
 
-- Closed-form normal equations with an L2 penalty (`λ = 200`), solved with
-  Gaussian elimination (partial pivoting), `log1p` target transform
-- Last **8 days** of each series held out; the model is scored against a
-  naive **baseline (mean of historical demand)**
-- Reported metrics: **MAE**, **RMSE**, **MAPE** for the model, plus the
-  baseline MAE/RMSE for comparison
+- `ml-service` compares weekly seasonal-naive, ridge regression, and XGBoost
+  using the same recursive seven-day forecasts and the six most recent
+  chronological rolling cutoffs. Random train/test splits are not used.
+- Each fold fits only on its training prefix. Series with date gaps or fewer
+  than 49 consecutive daily observations are reported as excluded.
+- The displayed measures are MAE, RMSE, WAPE, and macro MASE. MASE uses the
+  fold's training-only seasonal-naive error; series with a zero denominator
+  are listed and excluded from macro MASE.
+- Ridge or XGBoost is selected only when macro MASE is at least 5% better than
+  seasonal naive and WAPE is no more than 5% worse. Otherwise seasonal naive
+  remains selected. This is a demo acceptance rule, not a universal standard.
+- Forecast-derived stock risks use the selected model forecast when the
+  comparison service is available. If it is unavailable, the page keeps the
+  existing forecast and explicitly marks comparison as unavailable.
 
-> Metrics are computed **per run** from the currently seeded/synthetic data
-> and are surfaced live in the UI's model cards — no numbers are hard-coded
-> in this README. Because the current operational data is synthetic/seed data,
-> these numbers describe model fit on demo data, **not** accuracy on real
-> supply-chain data.
+The comparison data shown by the app comes from the current operational
+dataset. It is not proof of real-world hospital accuracy; imported and
+synthetic/demo data are distinguished in the UI.
+
+### Run the comparison service locally
+
+From PowerShell:
+
+```powershell
+cd ml-service
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Set `ML_SERVICE_URL=http://127.0.0.1:8000` in the backend environment. The
+backend exposes the comparison through the authenticated
+`GET /api/intelligence/forecast-comparison` route; the Python service should
+remain bound to loopback for local development.
+
+The operational delay card is a hypothetical what-if input. It does not create
+or execute a supplier order and does not imply the workbook contained a
+scheduled delivery.
 
 The intelligence pipeline additionally produces risk bands from the forecast:
 `GREEN` (above 1.5× safety), `YELLOW` (within 1.5× of safety), `RED` (below
@@ -595,7 +623,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Health checks: `GET http://localhost:4000/health`,
@@ -741,7 +769,7 @@ the database through the backend client.
 | backend | `npm run start` | Run the compiled build |
 | backend | `npm run typecheck` | `tsc --noEmit` typecheck |
 | backend | `npm test` | Run complete test suite (100 tests covering queues, scheduler, notifications, scenarios, forecasting, imports, and assistant tools) |
-| ml-service | `python -m uvicorn ...` | FastAPI dev server (port 8000) |
+| ml-service | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` | FastAPI forecast comparison and health endpoints |
 
 ---
 
@@ -750,9 +778,9 @@ the database through the backend client.
 - **Planned — LLM-backed Copilot:** replace the rule-based assistant with an
   LLM that answers from the application database and model results ("Why is
   Hospital H2 at risk?", "What happens if Supplier S2 fails?").
-- **Planned — model hosting in Python:** move training/inference to
-  `ml-service` (currently a health-check scaffold) so the Node tier stays
-  stateless.
+- **Next — validate against real operational histories:** use authorized,
+  privacy-reviewed data and include historical stock snapshots to evaluate
+  whether forecast improvements also improve safety-buffer alerts.
 - **Planned — real public datasets:** integrate authoritative public data
   (e.g. public health facility registers) and label it as REAL/PUBLIC data.
 - **Planned — anomaly detection:** flag unexpected demand shifts before they

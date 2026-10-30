@@ -145,7 +145,7 @@ export function buildBaseFeatures(
 ): number[] {
   const n = series.length;
 
-  const mean = series.length > 0 ? seriesMean(series) : 0;
+  const mean = seriesMean(series.slice(0, i));
 
   const lag1 = i > 0 ? series[i - 1].demand : mean;
 
@@ -162,7 +162,7 @@ export function buildBaseFeatures(
   features[BASE_BANDS.LAG7] = lag7;
   features[BASE_BANDS.MA7] = windowMean(series, i, 7);
   features[BASE_BANDS.MA14] = windowMean(series, i, 14);
-  features[BASE_BANDS.TREND] = n > 1 ? i / (n - 1) : 0;
+  features[BASE_BANDS.TREND] = Math.min(i, 364) / 364;
   features[BASE_BANDS.IS_WEEKEND] =
     date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 1 : 0;
 

@@ -47,7 +47,7 @@ export function addDaysUtc(date: Date, days: number): Date {
 export function buildBaseFeatures(series: DemandPoint[], i: number): number[] {
   const n = series.length;
 
-  const mean = n > 0 ? seriesMean(series) : 0;
+  const mean = seriesMean(series.slice(0, i));
 
   const lag1 = i > 0 ? series[i - 1].demand : mean;
 
@@ -64,7 +64,7 @@ export function buildBaseFeatures(series: DemandPoint[], i: number): number[] {
   features[1] = lag7;
   features[2] = windowMean(series, i, 7);
   features[3] = windowMean(series, i, 14);
-  features[4] = n > 1 ? i / (n - 1) : 0;
+  features[4] = Math.min(i, 364) / 364;
   features[5] = date.getUTCDay() === 0 || date.getUTCDay() === 6 ? 1 : 0;
 
   const month = date.getUTCMonth(); // 0..11

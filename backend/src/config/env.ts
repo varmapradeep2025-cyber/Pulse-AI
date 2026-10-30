@@ -45,6 +45,9 @@ const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY ?? "";
 
 // App public URL used in email/push links
 const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
+const ML_SERVICE_URL = (
+  process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
 
 export const env = {
   PORT,
@@ -59,4 +62,5 @@ export const env = {
   RESEND_FROM_EMAIL,
   FAST2SMS_API_KEY,
   APP_URL,
+  ML_SERVICE_URL,
 };
