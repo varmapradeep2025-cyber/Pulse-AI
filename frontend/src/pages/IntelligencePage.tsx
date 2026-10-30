@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { loadHospitalIntelligence } from "../data/hospitalIntelligence";
+import { Link } from "react-router-dom";
+import {
+  loadHospitalIntelligence,
+  IntelligenceForbiddenError,
+} from "../data/hospitalIntelligence";
 import type {
   ForecastModelMetrics,
   IntelligenceSummary,
@@ -7,6 +11,7 @@ import type {
 } from "../data/hospitalIntelligence";
 import { projectHypotheticalDelivery } from "../data/inventoryScenario";
 import LoadingState from "../components/LoadingState";
+import { ROUTES } from "../routes";
 
 const PIPELINE_STEPS = [
   "Inventory",
@@ -324,6 +329,7 @@ export default function IntelligencePage() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [forbiddenError, setForbiddenError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -334,9 +340,13 @@ export default function IntelligencePage() {
           setSummary(data);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (active) {
-          setError("Hospital intelligence data could not be loaded.");
+          if (err instanceof IntelligenceForbiddenError) {
+            setForbiddenError(err.message);
+          } else {
+            setError("Hospital intelligence data could not be loaded.");
+          }
         }
       })
       .finally(() => {
@@ -366,6 +376,31 @@ export default function IntelligencePage() {
     return (
       <div className="container page">
         <LoadingState label="Loading the demand forecast and model comparison..." />
+      </div>
+    );
+  }
+
+  if (forbiddenError) {
+    return (
+      <div className="container page">
+        <header className="page__header">
+          <h1>Hospital Intelligence</h1>
+        </header>
+        <section className="appointment-access-card" role="region" aria-labelledby="intel-access-title">
+          <h2 id="intel-access-title">Hospital staff authorization required</h2>
+          <p>{forbiddenError}</p>
+          <p className="appointment-muted" style={{ marginTop: "0.5rem" }}>
+            Operational forecasts, demand trends, and model comparisons contain sensitive hospital supply-chain data. Ask an administrator to assign your authorized hospital scope in <code>INVENTORY_STAFF_USER_IDS</code> or trusted app metadata.
+          </p>
+          <div style={{ marginTop: "1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <Link to={ROUTES.citizen} className="btn btn--primary btn--small">
+              Go to Citizen Healthcare
+            </Link>
+            <Link to={ROUTES.hospital} className="btn btn--secondary btn--small">
+              Hospital Operations Overview
+            </Link>
+          </div>
+        </section>
       </div>
     );
   }

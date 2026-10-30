@@ -6,6 +6,8 @@ import PortalLayout from "./components/PortalLayout";
 import LegacyRedirect from "./components/LegacyRedirect";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import LandingPage from "./pages/LandingPage";
 import DashboardPage from "./pages/DashboardPage";
 import HospitalsPage from "./pages/HospitalsPage";
@@ -39,6 +41,14 @@ export default function App() {
               <Route path={ROUTES.home} element={<LandingPage />} />
               <Route path={ROUTES.login} element={<LoginPage />} />
               <Route path={ROUTES.signup} element={<SignupPage />} />
+              <Route
+                path={ROUTES.forgotPassword}
+                element={<ForgotPasswordPage />}
+              />
+              <Route
+                path={ROUTES.resetPassword}
+                element={<ResetPasswordPage />}
+              />
             </Route>
 
             <Route element={<PortalLayout portal="citizen" />}>
