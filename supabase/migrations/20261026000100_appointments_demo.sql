@@ -122,6 +122,8 @@ create index if not exists appointment_events_appointment_idx
 create or replace function public.set_appointment_updated_at()
 returns trigger
 language plpgsql
+security definer
+set search_path = public, pg_temp
 as $$
 begin
   new.updated_at = now();
@@ -140,6 +142,8 @@ create or replace function public.is_appointment_staff()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public, pg_temp
 as $$
   select
     coalesce(

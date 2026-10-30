@@ -47,7 +47,13 @@ export function createCorsOptions(
       callback(null, isFrontendOriginAllowed(origin, allowedOrigins));
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type"],
+    allowedHeaders: [
+      "Authorization",
+      "Content-Type",
+      "x-retry-attempt",
+      "x-cron-key",
+      "x-worker-secret",
+    ],
     maxAge: 86_400,
   };
 }

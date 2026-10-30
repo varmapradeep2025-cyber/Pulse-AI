@@ -298,7 +298,7 @@ test("queue snapshot API: strictly enforces patient ownership", () => {
 });
 
 test("staff hospital authorization: verifies hospital scope correctly", () => {
-  const staffMember = {
+  const singleHospitalStaff = {
     id: "staff-123",
     appMetadata: {
       role: "appointment_staff",
@@ -307,19 +307,45 @@ test("staff hospital authorization: verifies hospital scope correctly", () => {
     staffUserIds: [],
   };
 
-  assert.equal(hasAppointmentStaffAccess(staffMember), true);
-  assert.equal(isStaffAuthorizedForHospital(staffMember, "H001"), true);
-  assert.equal(isStaffAuthorizedForHospital(staffMember, "H002"), false);
+  assert.equal(hasAppointmentStaffAccess(singleHospitalStaff), true);
+  assert.equal(isStaffAuthorizedForHospital(singleHospitalStaff, "H001"), true);
+  assert.equal(isStaffAuthorizedForHospital(singleHospitalStaff, "H002"), false);
 
-  const globalAdmin = {
-    id: "admin-999",
+  const multiHospitalStaff = {
+    id: "staff-multi",
     appMetadata: {
       role: "appointment_staff",
-      appointment_all_hospitals: true,
+      appointment_hospital_ids: ["H001", "H002"],
     },
     staffUserIds: [],
   };
 
+  assert.equal(isStaffAuthorizedForHospital(multiHospitalStaff, "H001"), true);
+  assert.equal(isStaffAuthorizedForHospital(multiHospitalStaff, "H002"), true);
+  assert.equal(isStaffAuthorizedForHospital(multiHospitalStaff, "H003"), false);
+
+  const unassignedStaff = {
+    id: "staff-unassigned",
+    staffUserIds: ["staff-unassigned"],
+    appMetadata: {
+      role: "appointment_staff",
+    },
+  };
+
+  // Staff without assigned hospital metadata must be denied access to all hospitals
+  assert.equal(hasAppointmentStaffAccess(unassignedStaff), true);
+  assert.equal(isStaffAuthorizedForHospital(unassignedStaff, "H001"), false);
+  assert.equal(isStaffAuthorizedForHospital(unassignedStaff, "H002"), false);
+
+  const globalAdmin = {
+    id: "admin-999",
+    appMetadata: {
+      role: "admin",
+    },
+    staffUserIds: [],
+  };
+
+  assert.equal(hasAppointmentStaffAccess(globalAdmin), true);
   assert.equal(isStaffAuthorizedForHospital(globalAdmin, "H001"), true);
   assert.equal(isStaffAuthorizedForHospital(globalAdmin, "H002"), true);
 });

@@ -70,11 +70,15 @@ export async function appointmentAuth(
 
     const appointmentUser: AppointmentUser & {
       isStaff: boolean;
+      appMetadata?: Record<string, unknown>;
+      staffUserIds?: readonly string[];
     } = {
       id: data.user.id,
       fullName: fullNameFromUser(data.user),
       email: data.user.email,
       isStaff: isConfiguredStaff(data.user),
+      appMetadata: data.user.app_metadata ?? {},
+      staffUserIds: env.APPOINTMENT_STAFF_USER_IDS,
     };
 
     req.appointmentUser = appointmentUser;
