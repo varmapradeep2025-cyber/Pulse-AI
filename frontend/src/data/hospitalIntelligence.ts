@@ -136,6 +136,16 @@ class IntelligenceAuthError extends Error {
     this.name = "IntelligenceAuthError";
   }
 }
+
+export class IntelligenceForbiddenError extends Error {
+  constructor(
+    message: string = "Hospital analytics and scenario simulation are restricted to authorized hospital staff.",
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "IntelligenceForbiddenError";
+  }
+}
 /* ------------------------------------------------------------------ */
 /* Online: backend ML engine with offline fallback                     */
 /* ------------------------------------------------------------------ */
@@ -160,6 +170,18 @@ export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
 
     if (response.status === 401) {
       throw new IntelligenceAuthError();
+    }
+
+    if (response.status === 403) {
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+        code?: string;
+      } | null;
+      throw new IntelligenceForbiddenError(
+        payload?.message ??
+          "Hospital analytics and scenario simulation are restricted to authorized hospital staff.",
+        payload?.code ?? "STAFF_ACCESS_REQUIRED",
+      );
     }
 
     if (!response.ok) {
@@ -226,7 +248,10 @@ export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
       window.clearTimeout(comparisonTimeout);
     }
   } catch (error) {
-    if (error instanceof IntelligenceAuthError) {
+    if (
+      error instanceof IntelligenceAuthError ||
+      error instanceof IntelligenceForbiddenError
+    ) {
       throw error;
     }
 

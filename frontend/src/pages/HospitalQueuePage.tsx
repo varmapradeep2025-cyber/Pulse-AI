@@ -4,7 +4,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { Link } from "react-router-dom";
 import AppointmentStatusBadge from "../components/AppointmentStatusBadge";
+import { useAuth } from "../context/AuthContext";
+import { ROUTES } from "../routes";
 import {
   AppointmentApiError,
   createWalkIn,
@@ -110,6 +113,7 @@ function QueueEstimate({ estimate }: { estimate: WaitEstimate }) {
 }
 
 export default function HospitalQueuePage() {
+  const { user } = useAuth();
   const [catalog, setCatalog] = useState<AppointmentCatalog | null>(null);
   const [hospitalId, setHospitalId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -121,11 +125,29 @@ export default function HospitalQueuePage() {
   const [pageError, setPageError] = useState("");
   const [actionError, setActionError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
+  const [hospitalForbidden, setHospitalForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [busyKey, setBusyKey] = useState("");
   const [walkInBusy, setWalkInBusy] = useState(false);
   const [walkInError, setWalkInError] = useState("");
+
+  const assignedHospitalIds = useMemo(() => {
+    const meta = (user?.app_metadata ?? {}) as Record<string, unknown>;
+    const raw = [
+      ...(Array.isArray(meta.appointment_hospital_ids)
+        ? meta.appointment_hospital_ids
+        : []),
+      ...(Array.isArray(meta.allowed_hospital_ids)
+        ? meta.allowed_hospital_ids
+        : []),
+      ...(typeof meta.hospital_id === "string" ? [meta.hospital_id] : []),
+      ...(typeof meta.appointment_hospital_id === "string"
+        ? [meta.appointment_hospital_id]
+        : []),
+    ].map(String);
+    return raw;
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,11 +157,21 @@ export default function HospitalQueuePage() {
         if (cancelled) return;
         setCatalog(result);
 
-        const firstHospital = result.hospitals[0];
-        const firstDepartment = firstHospital?.departments[0];
+        // Pre-select assigned hospital if available in metadata, else fallback to first
+        let targetHospital = result.hospitals[0];
+        if (assignedHospitalIds.length > 0) {
+          const matched = result.hospitals.find((h) =>
+            assignedHospitalIds.includes(h.id),
+          );
+          if (matched) {
+            targetHospital = matched;
+          }
+        }
+
+        const firstDepartment = targetHospital?.departments[0];
         const firstDoctor = firstDepartment?.doctors[0];
 
-        setHospitalId(firstHospital?.id ?? "");
+        setHospitalId(targetHospital?.id ?? "");
         setDepartmentId(firstDepartment?.id ?? "");
         setWalkInDoctorId(firstDoctor?.id ?? "");
       })
@@ -153,10 +185,10 @@ export default function HospitalQueuePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [assignedHospitalIds]);
 
   useEffect(() => {
-    if (accessDenied) {
+    if (accessDenied || hospitalForbidden) {
       return;
     }
 
@@ -172,7 +204,7 @@ export default function HospitalQueuePage() {
     }, 30_000);
 
     return () => window.clearInterval(timer);
-  }, [accessDenied, busyKey, loading, walkInBusy]);
+  }, [accessDenied, busyKey, hospitalForbidden, loading, walkInBusy]);
 
   useEffect(() => {
     if (!hospitalId || !departmentId) {
@@ -184,6 +216,7 @@ export default function HospitalQueuePage() {
     setPageError("");
     setActionError("");
     setAccessDenied(false);
+    setHospitalForbidden(false);
 
     getStaffQueue(hospitalId, departmentId)
       .then((result) => {
@@ -194,7 +227,20 @@ export default function HospitalQueuePage() {
       .catch((error) => {
         if (cancelled) return;
 
-        if (isStaffAccessError(error)) {
+        if (error instanceof AppointmentApiError) {
+          if (error.code === "STAFF_HOSPITAL_FORBIDDEN") {
+            setHospitalForbidden(true);
+            setQueue(null);
+          } else if (
+            error.status === 403 ||
+            error.code === "STAFF_ACCESS_REQUIRED"
+          ) {
+            setAccessDenied(true);
+            setQueue(null);
+          } else {
+            setPageError(errorMessage(error));
+          }
+        } else if (isStaffAccessError(error)) {
           setAccessDenied(true);
           setQueue(null);
         } else {
@@ -235,6 +281,8 @@ export default function HospitalQueuePage() {
     setDepartmentId(department?.id ?? "");
     setWalkInDoctorId(doctor?.id ?? "");
     setWalkInError("");
+    setHospitalForbidden(false);
+    setAccessDenied(false);
   }
 
   function handleDepartmentChange(nextDepartmentId: string) {
@@ -379,14 +427,26 @@ export default function HospitalQueuePage() {
       )}
 
       {accessDenied ? (
-        <section className="appointment-access-card">
-          <h2>Staff access required</h2>
+        <section className="appointment-access-card" role="region" aria-labelledby="staff-access-title">
+          <h2 id="staff-access-title">Staff access required</h2>
           <p>
-            This account is signed in but is not authorized for the appointment
-            staff queue. Ask an administrator to add this user ID to{" "}
-            <code>APPOINTMENT_STAFF_USER_IDS</code> or set trusted app metadata{" "}
-            <code>appointment_staff</code>. Users cannot grant this access
-            themselves.
+            The patient queue and consultation caller are restricted to authorized hospital staff. Your account is signed in but does not have medical staff credentials.
+          </p>
+          <div style={{ marginTop: "1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <Link to={ROUTES.citizen} className="btn btn--primary btn--small">
+              Go to Citizen Healthcare
+            </Link>
+            <Link to={ROUTES.hospital} className="btn btn--secondary btn--small">
+              Hospital Operations Overview
+            </Link>
+          </div>
+        </section>
+      ) : hospitalForbidden ? (
+        <section className="appointment-access-card" role="region" aria-labelledby="hospital-forbidden-title">
+          <h2 id="hospital-forbidden-title">Hospital authorization required</h2>
+          <p>
+            Your staff account is not authorized to manage the queue for{" "}
+            <strong>{selectedHospital?.name ?? hospitalId}</strong>. Please select your assigned facility from the hospital selector above.
           </p>
         </section>
       ) : pageError ? (

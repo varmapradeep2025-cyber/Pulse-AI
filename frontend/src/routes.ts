@@ -4,6 +4,8 @@ export const ROUTES = {
   home: "/",
   login: "/login",
   signup: "/signup",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   citizen: "/citizen",
   citizenHospitals: "/citizen/hospitals",
   citizenHospitalDetails: "/citizen/hospitals/:id",

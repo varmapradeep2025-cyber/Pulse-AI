@@ -124,9 +124,14 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-field">
-            <label htmlFor="login-password" className="auth-label">
-              Password
-            </label>
+            <div className="auth-field__header">
+              <label htmlFor="login-password" className="auth-label">
+                Password
+              </label>
+              <Link to={ROUTES.forgotPassword} className="auth-link-subtle">
+                Forgot password?
+              </Link>
+            </div>
             <div className="auth-input-wrapper">
               <input
                 id="login-password"
