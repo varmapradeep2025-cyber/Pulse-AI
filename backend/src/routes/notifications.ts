@@ -116,11 +116,13 @@ router.post(
 router.use(appointmentAuth);
 
 /* GET /api/notifications - List authenticated citizen notifications */
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const notifications = notificationService.listNotifications(user.id);
-    const unreadCount = notificationService.getUnreadCount(user.id);
+    const [notifications, unreadCount] = await Promise.all([
+      notificationService.listNotificationsAsync(user.id),
+      notificationService.getUnreadCountAsync(user.id),
+    ]);
 
     res.status(200).json({
       success: true,
@@ -133,10 +135,10 @@ router.get("/", (req, res) => {
 });
 
 /* PATCH /api/notifications/:id/read - Mark single notification as read */
-router.patch("/:id/read", (req, res) => {
+router.patch("/:id/read", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const notification = notificationService.markAsRead(user.id, req.params.id);
+    const notification = await notificationService.markAsReadAsync(user.id, req.params.id);
 
     res.status(200).json({
       success: true,
@@ -148,10 +150,10 @@ router.patch("/:id/read", (req, res) => {
 });
 
 /* POST /api/notifications/mark-all-read - Mark all notifications as read */
-router.post("/mark-all-read", (req, res) => {
+router.post("/mark-all-read", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const count = notificationService.markAllAsRead(user.id);
+    const count = await notificationService.markAllAsReadAsync(user.id);
 
     res.status(200).json({
       success: true,
@@ -163,10 +165,10 @@ router.post("/mark-all-read", (req, res) => {
 });
 
 /* GET /api/notifications/preferences - Retrieve citizen notification preferences */
-router.get("/preferences", (req, res) => {
+router.get("/preferences", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const preferences = notificationService.getPreferences(user.id);
+    const preferences = await notificationService.getPreferencesAsync(user.id);
 
     res.status(200).json({
       success: true,
@@ -178,10 +180,10 @@ router.get("/preferences", (req, res) => {
 });
 
 /* PUT /api/notifications/preferences - Update citizen notification preferences */
-router.put("/preferences", (req, res) => {
+router.put("/preferences", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const preferences = notificationService.updatePreferences(
+    const preferences = await notificationService.updatePreferencesAsync(
       user.id,
       req.body ?? {},
     );
@@ -196,10 +198,10 @@ router.put("/preferences", (req, res) => {
 });
 
 /* POST /api/notifications/push/subscribe - Register device push subscription */
-router.post("/push/subscribe", (req, res) => {
+router.post("/push/subscribe", async (req, res) => {
   try {
     const user = req.appointmentUser!;
-    const subscription = notificationService.registerPushSubscription(
+    const subscription = await notificationService.registerPushSubscriptionAsync(
       user.id,
       req.body ?? {},
     );
@@ -214,11 +216,11 @@ router.post("/push/subscribe", (req, res) => {
 });
 
 /* DELETE /api/notifications/push/unsubscribe - Deactivate device push subscription */
-router.delete("/push/unsubscribe", (req, res) => {
+router.delete("/push/unsubscribe", async (req, res) => {
   try {
     const user = req.appointmentUser!;
     const { endpoint } = req.body ?? {};
-    const success = notificationService.deactivatePushSubscription(
+    const success = await notificationService.deactivatePushSubscriptionAsync(
       user.id,
       String(endpoint ?? ""),
     );

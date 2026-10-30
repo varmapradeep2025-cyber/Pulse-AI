@@ -15,7 +15,19 @@ import type {
 import {
   type NotificationRepository,
   InMemoryNotificationRepository,
+  SupabaseNotificationRepository,
 } from "../repositories/notificationRepository.js";
+
+function defaultNotificationRepository(): NotificationRepository {
+  const isTest =
+    process.env.NODE_ENV === "test" ||
+    process.env.npm_lifecycle_event === "test" ||
+    process.argv.some((arg) => arg.includes("test"));
+  if (isTest && process.env.USE_SUPABASE_REPO !== "true") {
+    return new InMemoryNotificationRepository();
+  }
+  return new SupabaseNotificationRepository();
+}
 import {
   type EmailProvider,
   MockEmailProvider,
@@ -68,7 +80,7 @@ export class NotificationService {
   private appUrl: string;
 
   constructor(options: NotificationServiceOptions = {}) {
-    this.repository = options.repository ?? new InMemoryNotificationRepository();
+    this.repository = options.repository ?? defaultNotificationRepository();
     this.emailProvider = options.emailProvider ?? new MockEmailProvider();
     this.pushProvider = options.pushProvider ?? new MockPushProvider();
     this.smsProvider = options.smsProvider ?? new MockSmsProvider();
@@ -90,6 +102,161 @@ export class NotificationService {
 
   getSmsProvider(): SmsProvider {
     return this.smsProvider;
+  }
+
+  async getPreferencesAsync(userId: string): Promise<NotificationPreferences> {
+    if (this.repository.mode === "memory") {
+      return this.getPreferences(userId);
+    }
+    const existing = await this.repository.getPreferencesAsync(userId);
+    if (existing) {
+      return existing;
+    }
+
+    const defaultPrefs: NotificationPreferences = {
+      userId,
+      emailEnabled: true,
+      pushEnabled: false,
+      smsEnabled: false,
+      inAppEnabled: true,
+      reminderIntervals: [1440, 60, 15],
+      notifyApproachingTurn: true,
+      notifyDelay: true,
+      notifyAppointmentChanges: true,
+      phoneNumber: null,
+      createdAt: this.now().toISOString(),
+      updatedAt: this.now().toISOString(),
+    };
+
+    return this.repository.savePreferencesAsync(defaultPrefs);
+  }
+
+  async updatePreferencesAsync(
+    userId: string,
+    input: Partial<NotificationPreferences>,
+  ): Promise<NotificationPreferences> {
+    if (this.repository.mode === "memory") {
+      return this.updatePreferences(userId, input);
+    }
+    const current = await this.getPreferencesAsync(userId);
+    const updated: NotificationPreferences = {
+      ...current,
+      ...(input.emailEnabled !== undefined ? { emailEnabled: Boolean(input.emailEnabled) } : {}),
+      ...(input.pushEnabled !== undefined ? { pushEnabled: Boolean(input.pushEnabled) } : {}),
+      ...(input.smsEnabled !== undefined ? { smsEnabled: Boolean(input.smsEnabled) } : {}),
+      ...(input.inAppEnabled !== undefined ? { inAppEnabled: Boolean(input.inAppEnabled) } : {}),
+      ...(Array.isArray(input.reminderIntervals) ? { reminderIntervals: input.reminderIntervals } : {}),
+      ...(input.notifyApproachingTurn !== undefined ? { notifyApproachingTurn: Boolean(input.notifyApproachingTurn) } : {}),
+      ...(input.notifyDelay !== undefined ? { notifyDelay: Boolean(input.notifyDelay) } : {}),
+      ...(input.notifyAppointmentChanges !== undefined ? { notifyAppointmentChanges: Boolean(input.notifyAppointmentChanges) } : {}),
+      ...(input.phoneNumber !== undefined ? { phoneNumber: input.phoneNumber } : {}),
+      updatedAt: this.now().toISOString(),
+    };
+
+    return this.repository.savePreferencesAsync(updated);
+  }
+
+  async listNotificationsAsync(userId: string): Promise<InAppNotification[]> {
+    if (this.repository.mode === "memory") {
+      return this.listNotifications(userId);
+    }
+    return this.repository.getNotificationsByUser(userId);
+  }
+
+  async getUnreadCountAsync(userId: string): Promise<number> {
+    if (this.repository.mode === "memory") {
+      return this.getUnreadCount(userId);
+    }
+    return this.repository.getUnreadCountByUser(userId);
+  }
+
+  async markAsReadAsync(
+    userId: string,
+    notificationId: string,
+  ): Promise<InAppNotification> {
+    if (this.repository.mode === "memory") {
+      return this.markAsRead(userId, notificationId);
+    }
+    const notif = await this.repository.markNotificationAsRead(
+      userId,
+      notificationId,
+      this.now().toISOString(),
+    );
+    if (!notif) {
+      throw new NotificationError(
+        404,
+        "NOTIFICATION_NOT_FOUND",
+        "Notification not found or access denied.",
+      );
+    }
+    return notif;
+  }
+
+  async markAllAsReadAsync(userId: string): Promise<number> {
+    if (this.repository.mode === "memory") {
+      return this.markAllAsRead(userId);
+    }
+    return this.repository.markAllNotificationsAsRead(
+      userId,
+      this.now().toISOString(),
+    );
+  }
+
+  async registerPushSubscriptionAsync(
+    userId: string,
+    input: unknown,
+  ): Promise<PushSubscriptionRecord> {
+    const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+    const typedInput: PushSubscriptionInput = {
+      endpoint: typeof raw.endpoint === "string" ? raw.endpoint.trim() : "",
+      p256dh: typeof raw.p256dh === "string" ? raw.p256dh.trim() : "",
+      auth: typeof raw.auth === "string" ? raw.auth.trim() : "",
+      userAgent: typeof raw.userAgent === "string" ? raw.userAgent : undefined,
+    };
+
+    if (this.repository.mode === "memory") {
+      return this.registerPushSubscription(userId, typedInput);
+    }
+
+    if (!typedInput.endpoint || !typedInput.p256dh || !typedInput.auth) {
+      throw new NotificationError(
+        400,
+        "INVALID_SUBSCRIPTION",
+        "Invalid push subscription parameters.",
+      );
+    }
+
+    const record: PushSubscriptionRecord = {
+      id: randomUUID(),
+      userId,
+      endpoint: typedInput.endpoint,
+      p256dh: typedInput.p256dh,
+      auth: typedInput.auth,
+      userAgent: typedInput.userAgent ?? null,
+      isActive: true,
+      createdAt: this.now().toISOString(),
+      updatedAt: this.now().toISOString(),
+    };
+
+    await this.repository.savePushSubscriptionAsync(record);
+    return record;
+  }
+
+  async deactivatePushSubscriptionAsync(
+    userId: string,
+    endpoint: string,
+  ): Promise<boolean> {
+    if (this.repository.mode === "memory") {
+      return this.deactivatePushSubscription(userId, endpoint);
+    }
+    return this.repository.deactivatePushSubscriptionAsync(userId, endpoint);
+  }
+
+  async cancelAppointmentRemindersAsync(appointmentId: string): Promise<number> {
+    if (this.repository.mode === "memory") {
+      return this.cancelAppointmentReminders(appointmentId);
+    }
+    return this.repository.cancelPendingJobsForAppointmentAsync(appointmentId);
   }
 
   reset(): void {

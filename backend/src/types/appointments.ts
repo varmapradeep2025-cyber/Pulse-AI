@@ -29,6 +29,7 @@ export interface AppointmentUser {
   id: string;
   fullName?: string;
   email?: string;
+  isStaff?: boolean;
 }
 
 export interface AppointmentDoctor {

@@ -73,9 +73,9 @@ router.get("/availability", (req, res) => {
   }
 });
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const appointments = appointmentService.listAppointments(
+    const appointments = await appointmentService.listAppointmentsAsync(
       req.appointmentUser!,
     );
 
@@ -88,9 +88,9 @@ router.get("/", (req, res) => {
   }
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const appointment = appointmentService.createAppointment(
+    const appointment = await appointmentService.createAppointmentAsync(
       req.appointmentUser!,
       req.body ?? {},
     );
@@ -104,9 +104,9 @@ router.post("/", (req, res) => {
   }
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const appointment = appointmentService.getAppointment(
+    const appointment = await appointmentService.getAppointmentAsync(
       req.appointmentUser!,
       req.params.id,
     );
@@ -120,9 +120,9 @@ router.get("/:id", (req, res) => {
   }
 });
 
-router.get("/:id/queue-snapshot", (req, res) => {
+router.get("/:id/queue-snapshot", async (req, res) => {
   try {
-    const snapshot = appointmentService.getQueueSnapshot(
+    const snapshot = await appointmentService.getQueueSnapshotAsync(
       req.appointmentUser!,
       req.params.id,
     );
@@ -136,10 +136,10 @@ router.get("/:id/queue-snapshot", (req, res) => {
   }
 });
 
-router.patch("/:id/reschedule", (req, res) => {
+router.patch("/:id/reschedule", async (req, res) => {
   try {
     const appointment =
-      appointmentService.rescheduleAppointment(
+      await appointmentService.rescheduleAppointmentAsync(
         req.appointmentUser!,
         req.params.id,
         req.body ?? {},
@@ -154,9 +154,9 @@ router.patch("/:id/reschedule", (req, res) => {
   }
 });
 
-router.post("/:id/cancel", (req, res) => {
+router.post("/:id/cancel", async (req, res) => {
   try {
-    const appointment = appointmentService.cancelAppointment(
+    const appointment = await appointmentService.cancelAppointmentAsync(
       req.appointmentUser!,
       req.params.id,
     );
@@ -170,9 +170,9 @@ router.post("/:id/cancel", (req, res) => {
   }
 });
 
-router.post("/:id/check-in", (req, res) => {
+router.post("/:id/check-in", async (req, res) => {
   try {
-    const appointment = appointmentService.checkIn(
+    const appointment = await appointmentService.checkInAsync(
       req.appointmentUser!,
       req.params.id,
     );
@@ -188,9 +188,9 @@ router.post("/:id/check-in", (req, res) => {
 
 staffRouter.use(appointmentAuth, requireAppointmentStaff);
 
-staffRouter.get("/queue", (req, res) => {
+staffRouter.get("/queue", async (req, res) => {
   try {
-    const queue = appointmentService.getQueue(
+    const queue = await appointmentService.getQueueAsync(
       {
         hospitalId: req.query.hospitalId,
         departmentId: req.query.departmentId,
@@ -207,9 +207,9 @@ staffRouter.get("/queue", (req, res) => {
   }
 });
 
-staffRouter.post("/walk-ins", (req, res) => {
+staffRouter.post("/walk-ins", async (req, res) => {
   try {
-    const appointment = appointmentService.createWalkIn(
+    const appointment = await appointmentService.createWalkInAsync(
       req.body ?? {},
       req.appointmentUser,
     );
@@ -223,10 +223,10 @@ staffRouter.post("/walk-ins", (req, res) => {
   }
 });
 
-staffRouter.patch("/:id/status", (req, res) => {
+staffRouter.patch("/:id/status", async (req, res) => {
   try {
     const appointment =
-      appointmentService.transitionAppointment(
+      await appointmentService.transitionAppointmentAsync(
         req.params.id,
         req.body ?? {},
         req.appointmentUser,

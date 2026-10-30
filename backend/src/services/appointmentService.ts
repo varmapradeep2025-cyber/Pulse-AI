@@ -28,7 +28,19 @@ import {
 import {
   type AppointmentRepository,
   InMemoryAppointmentRepository,
+  SupabaseAppointmentRepository,
 } from "../repositories/appointmentRepository.js";
+
+function defaultAppointmentRepository(): AppointmentRepository {
+  const isTest =
+    process.env.NODE_ENV === "test" ||
+    process.env.npm_lifecycle_event === "test" ||
+    process.argv.some((arg) => arg.includes("test"));
+  if (isTest && process.env.USE_SUPABASE_REPO !== "true") {
+    return new InMemoryAppointmentRepository();
+  }
+  return new SupabaseAppointmentRepository();
+}
 import {
   type AppointmentAccessIdentity,
   isStaffAuthorizedForHospital,
@@ -281,12 +293,630 @@ export class AppointmentService {
     this.hospitals =
       options.hospitals ?? APPOINTMENT_DEMO_HOSPITALS;
     this.repository =
-      options.repository ?? new InMemoryAppointmentRepository();
+      options.repository ?? defaultAppointmentRepository();
     this.notifications =
       options.notificationService ?? notificationService;
   }
 
-  getNotificationService(): NotificationService {
+  async listAppointmentsAsync(user: AppointmentUser): Promise<AppointmentView[]> {
+    if (this.repository.mode === "memory") {
+      return this.listAppointments(user);
+    }
+    this.assertUser(user);
+    const appointments = await this.repository.getAppointmentsByUser(user.id);
+    return appointments.map((apt) => this.toView(apt));
+  }
+
+  async getAppointmentAsync(
+    user: AppointmentUser,
+    appointmentId: string,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.getAppointment(user, appointmentId);
+    }
+    this.assertUser(user);
+    const appointment = await this.repository.getAppointmentById(
+      appointmentId,
+      {
+        id: user.id,
+        isStaff: user.isStaff,
+      },
+    );
+    if (!appointment) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "The requested appointment could not be found.",
+      );
+    }
+    return this.toView(appointment);
+  }
+
+  async getQueueSnapshotAsync(
+    user: AppointmentUser,
+    appointmentId: string,
+  ): Promise<QueueSnapshot> {
+    if (this.repository.mode === "memory") {
+      return this.getQueueSnapshot(user, appointmentId);
+    }
+    this.assertUser(user);
+    const appointment = await this.repository.getAppointmentById(
+      appointmentId,
+      {
+        id: user.id,
+        isStaff: user.isStaff,
+      },
+    );
+    if (!appointment) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "The requested appointment could not be found.",
+      );
+    }
+    const now = this.now();
+    const queueDate =
+      appointment.queueDate ?? istDateKey(new Date(appointment.scheduledAt));
+
+    const [activeQueue, servingToken] = await Promise.all([
+      this.repository.getQueueRecords(
+        appointment.hospitalId,
+        appointment.departmentId,
+        queueDate,
+      ),
+      this.repository.getServingQueueToken(
+        appointment.hospitalId,
+        appointment.departmentId,
+        queueDate,
+      ),
+    ]);
+
+    let patientsAhead = 0;
+    if (
+      appointment.tokenNumber !== null &&
+      appointment.status !== "completed" &&
+      appointment.status !== "cancelled" &&
+      appointment.status !== "missed"
+    ) {
+      const activeUnserved = activeQueue.filter(
+        (candidate) =>
+          candidate.tokenNumber !== null &&
+          (candidate.status === "confirmed" ||
+            candidate.status === "checked_in" ||
+            candidate.status === "waiting") &&
+          candidate.tokenNumber < appointment.tokenNumber!,
+      );
+      patientsAhead = activeUnserved.length;
+    }
+
+    const waitEstimate = this.computeWaitEstimate({
+      hospital: this.hospitals.find((h) => h.id === appointment.hospitalId) ?? {
+        id: appointment.hospitalId,
+        name: appointment.hospitalName,
+        city: "",
+        departments: [],
+      },
+      department: {
+        id: appointment.departmentId,
+        name: appointment.departmentName,
+        doctors: [],
+      },
+      doctorId: appointment.doctorId,
+      appointment,
+    });
+
+    return {
+      appointmentId: appointment.id,
+      reference: appointment.reference,
+      status: appointment.status,
+      queueDate: appointment.queueDate,
+      tokenNumber: appointment.tokenNumber,
+      digitalToken: appointment.digitalToken,
+      currentServingToken: servingToken,
+      currentServingDigitalToken:
+        servingToken !== null ? formatDigitalToken(servingToken) : null,
+      patientsAhead,
+      waitEstimate,
+      updatedAt: now.toISOString(),
+    };
+  }
+
+  async createAppointmentAsync(
+    user: AppointmentUser,
+    input: CreateAppointmentInput,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.createAppointment(user, input);
+    }
+    this.assertUser(user);
+    const selection = this.resolveSelection(input);
+    const slotId = asRequiredString(
+      input.slotId,
+      "Appointment slot",
+      180,
+    );
+    const now = this.now();
+    const slot = this.findFutureSlot(selection, slotId, now);
+
+    const patientName = asPatientName(input.patientName, user.fullName);
+    const isApprovalRequired = selection.doctor.approvalRequired;
+    const requestedStatus: AppointmentStatus = isApprovalRequired
+      ? "requested"
+      : "confirmed";
+
+    const queueDate = istDateKey(new Date(slot.startsAt));
+    let tokenNumber: number | null = null;
+    let digitalToken: string | null = null;
+
+    if (!isApprovalRequired) {
+      tokenNumber = await this.repository.allocateQueueToken(
+        selection.hospital.id,
+        selection.department.id,
+        queueDate,
+      );
+      digitalToken = formatDigitalToken(tokenNumber);
+    }
+
+    const appointment: Appointment = {
+      id: randomUUID(),
+      reference: makeReference(now),
+      userId: user.id,
+      patientName,
+      hospitalId: selection.hospital.id,
+      hospitalName: selection.hospital.name,
+      departmentId: selection.department.id,
+      departmentName: selection.department.name,
+      doctorId: selection.doctor.id,
+      doctorName: selection.doctor.name,
+      slotId: slot.slotId,
+      scheduledAt: slot.startsAt,
+      status: requestedStatus,
+      source: "online",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      checkedInAt: null,
+      consultationStartedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      missedAt: null,
+      queueDate,
+      tokenNumber,
+      digitalToken,
+      calledAt: null,
+    };
+
+    const saved = await this.repository.createAppointment(appointment);
+
+    const userPhone =
+      typeof input.phoneNumber === "string" && input.phoneNumber.trim().length > 0
+        ? input.phoneNumber.trim()
+        : undefined;
+
+    if (saved.userId && userPhone) {
+      this.notifications.updatePreferences(saved.userId, {
+        phoneNumber: userPhone,
+        smsEnabled: true,
+      });
+    }
+
+    if (saved.userId) {
+      if (saved.status === "confirmed") {
+        this.notifications
+          .sendImmediateNotification({
+            userId: saved.userId,
+            appointmentId: saved.id,
+            type: "appointment_confirmed",
+            title: "Appointment Confirmed",
+            message: `Your appointment at ${saved.hospitalName} (${saved.departmentName}) with ${saved.doctorName} is confirmed for ${saved.scheduledAt}. Token: ${saved.digitalToken ?? "Assigned upon check-in"}.`,
+            link: "/citizen/appointments",
+            recipientEmail: user.email,
+            recipientPhone: userPhone,
+          })
+          .catch(() => {});
+
+        this.notifications.scheduleAppointmentReminders({
+          userId: saved.userId,
+          appointmentId: saved.id,
+          patientName: saved.patientName,
+          hospitalName: saved.hospitalName,
+          departmentName: saved.departmentName,
+          doctorName: saved.doctorName,
+          scheduledAt: saved.scheduledAt,
+          digitalToken: saved.digitalToken,
+          userEmail: user.email,
+          phoneNumber: userPhone,
+        });
+      } else {
+        this.notifications
+          .sendImmediateNotification({
+            userId: saved.userId,
+            appointmentId: saved.id,
+            type: "appointment_confirmed",
+            title: "Appointment Requested",
+            message: `Your appointment request for ${saved.hospitalName} (${saved.departmentName}) with ${saved.doctorName} has been submitted for doctor approval.`,
+            link: "/citizen/appointments",
+            recipientEmail: user.email,
+          })
+          .catch(() => {});
+      }
+    }
+
+    return this.toView(saved);
+  }
+
+  async cancelAppointmentAsync(
+    user: AppointmentUser,
+    appointmentId: string,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.cancelAppointment(user, appointmentId);
+    }
+    this.assertUser(user);
+    const existing = await this.repository.getAppointmentById(
+      appointmentId,
+      { id: user.id, isStaff: user.isStaff },
+    );
+    if (!existing) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "The requested appointment could not be found.",
+      );
+    }
+
+    if (existing.status === "cancelled" || existing.status === "completed") {
+      throw new AppointmentError(
+        400,
+        "INVALID_STATUS",
+        `Cannot cancel an appointment that is already ${existing.status}.`,
+      );
+    }
+
+    const cancelled = await this.repository.cancelAppointment(
+      appointmentId,
+      this.now().toISOString(),
+      "patient",
+    );
+
+    this.notifications.cancelAppointmentReminders(appointmentId);
+
+    if (cancelled.userId) {
+      this.notifications
+        .sendImmediateNotification({
+          userId: cancelled.userId,
+          appointmentId: cancelled.id,
+          type: "appointment_cancelled",
+          title: "Appointment Cancelled",
+          message: `Your appointment at ${cancelled.hospitalName} (${cancelled.departmentName}) on ${cancelled.scheduledAt} has been cancelled.`,
+          link: "/citizen/appointments",
+          recipientEmail: user.email,
+        })
+        .catch(() => {});
+    }
+
+    return this.toView(cancelled);
+  }
+
+  async checkInAsync(
+    user: AppointmentUser,
+    appointmentId: string,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.checkIn(user, appointmentId);
+    }
+    this.assertUser(user);
+    const existing = await this.repository.getAppointmentById(
+      appointmentId,
+      { id: user.id, isStaff: user.isStaff },
+    );
+    if (!existing) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "The requested appointment could not be found.",
+      );
+    }
+
+    if (existing.status !== "confirmed") {
+      throw new AppointmentError(
+        400,
+        "INVALID_STATUS",
+        "Only confirmed appointments can be checked in.",
+      );
+    }
+
+    const now = this.now();
+    const updated = await this.repository.updateAppointmentStatus(
+      appointmentId,
+      "checked_in",
+      { checkedInAt: now.toISOString() },
+      "patient",
+    );
+
+    if (updated.userId) {
+      this.notifications
+        .sendImmediateNotification({
+          userId: updated.userId,
+          appointmentId: updated.id,
+          type: "queue_registered",
+          title: "Checked In to Hospital Queue",
+          message: `You have successfully checked in at ${updated.hospitalName}. Your token is ${updated.digitalToken ?? "N/A"}.`,
+          link: "/citizen/appointments",
+          recipientEmail: user.email,
+        })
+        .catch(() => {});
+    }
+
+    return this.toView(updated);
+  }
+
+  async rescheduleAppointmentAsync(
+    user: AppointmentUser,
+    appointmentId: string,
+    input: RescheduleAppointmentInput,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.rescheduleAppointment(user, appointmentId, input);
+    }
+    this.assertUser(user);
+    const existing = await this.repository.getAppointmentById(
+      appointmentId,
+      { id: user.id, isStaff: user.isStaff },
+    );
+    if (!existing) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "The requested appointment could not be found.",
+      );
+    }
+
+    const slotId = asRequiredString(input.slotId, "New appointment slot", 180);
+    const selection = this.resolveSelection({
+      hospitalId: existing.hospitalId,
+      departmentId: existing.departmentId,
+      doctorId: existing.doctorId,
+    });
+    const now = this.now();
+    const slot = this.findFutureSlot(selection, slotId, now);
+
+    const newDate = istDateKey(new Date(slot.startsAt));
+    const oldDate = existing.queueDate;
+    let tokenNumber = existing.tokenNumber;
+    let digitalToken = existing.digitalToken;
+
+    if (newDate !== oldDate) {
+      tokenNumber = await this.repository.allocateQueueToken(
+        existing.hospitalId,
+        existing.departmentId,
+        newDate,
+      );
+      digitalToken = formatDigitalToken(tokenNumber);
+    }
+
+    const updated = await this.repository.updateAppointmentStatus(
+      appointmentId,
+      "confirmed",
+      {
+        slotId: slot.slotId,
+        scheduledAt: slot.startsAt,
+        queueDate: newDate,
+        tokenNumber,
+        digitalToken,
+      },
+      "patient",
+    );
+
+    this.notifications.cancelAppointmentReminders(appointmentId);
+    this.notifications.scheduleAppointmentReminders({
+      userId: updated.userId!,
+      appointmentId: updated.id,
+      patientName: updated.patientName,
+      hospitalName: updated.hospitalName,
+      departmentName: updated.departmentName,
+      doctorName: updated.doctorName,
+      scheduledAt: updated.scheduledAt,
+      digitalToken: updated.digitalToken,
+      userEmail: user.email,
+    });
+
+    return this.toView(updated);
+  }
+
+  async getQueueAsync(
+    input: { hospitalId?: unknown; departmentId?: unknown },
+    staffIdentity?: AppointmentAccessIdentity,
+  ): Promise<QueueView> {
+    if (this.repository.mode === "memory") {
+      return this.getQueue(input, staffIdentity);
+    }
+    const hospitalId = asRequiredString(input.hospitalId, "Hospital");
+    const departmentId = asRequiredString(input.departmentId, "Department");
+
+    if (staffIdentity) {
+      if (!isStaffAuthorizedForHospital(staffIdentity, hospitalId)) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to view the queue for this hospital.",
+        );
+      }
+    }
+
+    const selection = this.resolveSelection({
+      hospitalId,
+      departmentId,
+      doctorId: this.hospitals
+        .find((hospital) => hospital.id === hospitalId)
+        ?.departments.find((department) => department.id === departmentId)
+        ?.doctors[0]?.id,
+    });
+    const now = this.now();
+    const todayDate = istDateKey(now);
+
+    const [records, servingToken] = await Promise.all([
+      this.repository.getQueueRecords(hospitalId, departmentId, todayDate),
+      this.repository.getServingQueueToken(hospitalId, departmentId, todayDate),
+    ]);
+
+    const appointments = records.map((r) => this.toView(r));
+    const activeCount = appointments.filter((view) =>
+      ["checked_in", "waiting", "in_consultation"].includes(
+        view.appointment.status,
+      ),
+    ).length;
+
+    return {
+      appointments,
+      waitEstimate: this.computeWaitEstimate({
+        hospital: selection.hospital,
+        department: selection.department,
+      }),
+      currentServingToken: servingToken,
+      currentServingDigitalToken:
+        servingToken !== null ? formatDigitalToken(servingToken) : null,
+      activeCount,
+      source: "demo",
+      demoLabel: APPOINTMENT_DEMO_LABEL,
+    };
+  }
+
+  async createWalkInAsync(
+    input: CreateWalkInInput,
+    staffIdentity?: AppointmentAccessIdentity,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.createWalkIn(input, staffIdentity);
+    }
+    const hospitalId = asRequiredString(input.hospitalId, "Hospital");
+    const departmentId = asRequiredString(input.departmentId, "Department");
+
+    if (staffIdentity) {
+      if (!isStaffAuthorizedForHospital(staffIdentity, hospitalId)) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to register walk-ins for this hospital.",
+        );
+      }
+    }
+
+    const selection = this.resolveSelection({
+      hospitalId,
+      departmentId,
+      doctorId:
+        typeof input.doctorId === "string" && input.doctorId.trim().length > 0
+          ? input.doctorId.trim()
+          : undefined,
+    });
+    const patientName = asPatientName(input.patientName);
+    const now = this.now();
+    const queueDate = istDateKey(now);
+
+    const tokenNumber = await this.repository.allocateQueueToken(
+      selection.hospital.id,
+      selection.department.id,
+      queueDate,
+    );
+    const digitalToken = formatDigitalToken(tokenNumber);
+
+    const appointment: Appointment = {
+      id: randomUUID(),
+      reference: makeReference(now),
+      userId: null,
+      patientName,
+      hospitalId: selection.hospital.id,
+      hospitalName: selection.hospital.name,
+      departmentId: selection.department.id,
+      departmentName: selection.department.name,
+      doctorId: selection.doctor.id,
+      doctorName: selection.doctor.name,
+      slotId: null,
+      scheduledAt: now.toISOString(),
+      status: "waiting",
+      source: "walk_in",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      checkedInAt: now.toISOString(),
+      consultationStartedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      missedAt: null,
+      queueDate,
+      tokenNumber,
+      digitalToken,
+      calledAt: null,
+    };
+
+    const saved = await this.repository.createAppointment(appointment);
+    return this.toView(saved);
+  }
+
+  async transitionAppointmentAsync(
+    appointmentId: string,
+    input: TransitionAppointmentInput,
+    staffIdentity?: AppointmentAccessIdentity,
+  ): Promise<AppointmentView> {
+    if (this.repository.mode === "memory") {
+      return this.transitionAppointment(appointmentId, input, staffIdentity);
+    }
+    const appointment = await this.repository.getAppointmentById(
+      appointmentId,
+    );
+    if (!appointment) {
+      throw new AppointmentError(
+        404,
+        "APPOINTMENT_NOT_FOUND",
+        "Appointment does not exist.",
+      );
+    }
+
+    if (staffIdentity) {
+      if (
+        !isStaffAuthorizedForHospital(
+          staffIdentity,
+          appointment.hospitalId,
+        )
+      ) {
+        throw new AppointmentError(
+          403,
+          "STAFF_HOSPITAL_FORBIDDEN",
+          "You are not authorized to update appointments for this hospital.",
+        );
+      }
+    }
+
+    const nextStatus = asStatus(input.status);
+    const now = this.now();
+    const extra: Partial<Appointment> = {};
+
+    if (nextStatus === "in_consultation") {
+      extra.consultationStartedAt = now.toISOString();
+      if (appointment.tokenNumber !== null) {
+        await this.repository.setServingQueueToken(
+          appointment.hospitalId,
+          appointment.departmentId,
+          appointment.queueDate ?? istDateKey(now),
+          appointment.tokenNumber,
+        );
+      }
+    } else if (nextStatus === "completed") {
+      extra.completedAt = now.toISOString();
+    } else if (nextStatus === "missed") {
+      extra.missedAt = now.toISOString();
+    }
+
+    const updated = await this.repository.updateAppointmentStatus(
+      appointmentId,
+      nextStatus,
+      extra,
+      "staff",
+    );
+
+    return this.toView(updated);
+  }
+
+    getNotificationService(): NotificationService {
     return this.notifications;
   }
 
