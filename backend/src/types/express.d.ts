@@ -8,6 +8,8 @@ declare global {
       analyticsUser?: AnalyticsUser;
       appointmentUser?: AppointmentUser & {
         isStaff: boolean;
+        appMetadata?: Record<string, unknown>;
+        staffUserIds?: readonly string[];
       };
       inventoryUser?: InventoryUser;
     }

@@ -69,3 +69,13 @@ test("CORS allowed methods include PATCH, PUT, and DELETE", () => {
   assert.ok(methods.includes("POST"), "POST must be in allowed methods");
   assert.ok(methods.includes("OPTIONS"), "OPTIONS must be in allowed methods");
 });
+
+test("CORS allowed headers include Authorization, Content-Type, and retry/worker headers", () => {
+  const options = createCorsOptions(["http://localhost:5173"]);
+  const headers = options.allowedHeaders as string[];
+  assert.ok(headers.includes("Authorization"), "Authorization must be allowed");
+  assert.ok(headers.includes("Content-Type"), "Content-Type must be allowed");
+  assert.ok(headers.includes("x-retry-attempt"), "x-retry-attempt must be allowed");
+  assert.ok(headers.includes("x-cron-key"), "x-cron-key must be allowed");
+  assert.ok(headers.includes("x-worker-secret"), "x-worker-secret must be allowed");
+});

@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { timingSafeEqual } from "node:crypto";
 import {
   NotificationError,
   notificationService,
@@ -30,7 +31,88 @@ function sendNotificationError(res: Response, error: unknown): void {
   });
 }
 
-// All notification routes require authenticated session
+function isValidCronSecret(
+  candidate: unknown,
+  expected: string | undefined,
+): boolean {
+  if (
+    typeof candidate !== "string" ||
+    !expected ||
+    candidate.length === 0 ||
+    expected.length === 0
+  ) {
+    return false;
+  }
+
+  const candBuf = Buffer.from(candidate);
+  const expBuf = Buffer.from(expected);
+
+  if (candBuf.length !== expBuf.length) {
+    return false;
+  }
+
+  return timingSafeEqual(candBuf, expBuf);
+}
+
+/* POST /api/notifications/process-worker - Trigger background scheduler cycle (Admin/Staff/Cron only)
+ * Mounted before router.use(appointmentAuth) so authorized cron jobs can authenticate without user JWTs.
+ */
+router.post(
+  "/process-worker",
+  async (req, res, next) => {
+    const rawCronSecret =
+      req.headers["x-cron-key"] ?? req.headers["x-worker-secret"];
+    const cronSecret = Array.isArray(rawCronSecret)
+      ? rawCronSecret[0]
+      : rawCronSecret;
+    const configuredSecret = process.env.CRON_SECRET;
+
+    // 1. Check cron secret first (does not require user JWT)
+    if (isValidCronSecret(cronSecret, configuredSecret)) {
+      next();
+      return;
+    }
+
+    // 2. If a cron secret was provided but invalid: reject immediately
+    if (typeof cronSecret === "string" && cronSecret.length > 0) {
+      res.status(403).json({
+        success: false,
+        code: "INVALID_CRON_SECRET",
+        message: "The provided cron secret is invalid.",
+      });
+      return;
+    }
+
+    // 3. Fall back to user JWT auth (for staff administrator manual triggers)
+    await appointmentAuth(req, res, () => {
+      if (req.appointmentUser?.isStaff) {
+        next();
+        return;
+      }
+
+      res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        message:
+          "Background worker execution is restricted to staff administrators and authorized cron services.",
+      });
+    });
+  },
+  async (_req, res) => {
+    try {
+      const result = await notificationService.processDueJobs();
+
+      res.status(200).json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      sendNotificationError(res, error);
+    }
+  },
+);
+
+// All citizen notification routes below require authenticated session
 router.use(appointmentAuth);
 
 /* GET /api/notifications - List authenticated citizen notifications */
@@ -148,41 +230,5 @@ router.delete("/push/unsubscribe", (req, res) => {
     sendNotificationError(res, error);
   }
 });
-
-/* POST /api/notifications/process-worker - Trigger background scheduler cycle (Admin/Staff/Cron only) */
-router.post(
-  "/process-worker",
-  (req, res, next) => {
-    const cronSecret = req.headers["x-cron-key"] ?? req.headers["x-worker-secret"];
-    const isCronService = Boolean(
-      process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET,
-    );
-    const isAdminStaff = Boolean(req.appointmentUser?.isStaff);
-
-    if (!isCronService && !isAdminStaff) {
-      res.status(403).json({
-        success: false,
-        code: "FORBIDDEN",
-        message:
-          "Background worker execution is restricted to staff administrators and authorized cron services.",
-      });
-      return;
-    }
-
-    next();
-  },
-  async (_req, res) => {
-    try {
-      const result = await notificationService.processDueJobs();
-
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      sendNotificationError(res, error);
-    }
-  },
-);
 
 export default router;

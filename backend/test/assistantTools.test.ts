@@ -14,6 +14,10 @@ const DEMO_USER = {
 const DOCTOR_IDENTITY = {
   id: "doc-1",
   staffUserIds: ["doc-1"],
+  appMetadata: {
+    role: "appointment_staff",
+    appointment_hospital_ids: ["hosp-bhopal-dist", "H001"],
+  },
 };
 
 test("assistant returns accurate appointment summary for citizen with scheduled appointment", async () => {

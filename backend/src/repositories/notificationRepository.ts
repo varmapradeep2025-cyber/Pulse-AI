@@ -6,6 +6,19 @@ import type {
   ScheduledNotificationJob,
 } from "../types/notifications.js";
 
+const MISSING_SCHEMA_CODES = new Set(["42P01", "PGRST202", "PGRST205"]);
+
+export class NotificationPersistenceError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    public readonly publicMessage: string,
+  ) {
+    super(publicMessage);
+    this.name = "NotificationPersistenceError";
+  }
+}
+
 export interface NotificationRepository {
   readonly mode: "memory" | "supabase";
   getPreferences(userId: string): NotificationPreferences | undefined;
@@ -30,6 +43,10 @@ export interface NotificationRepository {
   recordDeliveryAttempt(attempt: DeliveryAttemptRecord): void;
   getDeliveryAttempts(jobId?: string): DeliveryAttemptRecord[];
   reset(): void;
+  // Optional async operations for direct database persistence
+  savePreferencesAsync?(preferences: NotificationPreferences): Promise<void>;
+  saveNotificationAsync?(notification: InAppNotification): Promise<void>;
+  syncFromDatabase?(): Promise<void>;
 }
 
 export class InMemoryNotificationRepository implements NotificationRepository {
@@ -204,12 +221,68 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   readonly mode = "supabase" as const;
   private cache = new InMemoryNotificationRepository();
 
+  private assertSchemaAvailable(error?: {
+    code?: string;
+    message?: string;
+  }): never {
+    if (
+      error &&
+      (MISSING_SCHEMA_CODES.has(error.code ?? "") ||
+        error.message?.includes("does not exist"))
+    ) {
+      throw new NotificationPersistenceError(
+        503,
+        "NOTIFICATION_SCHEMA_NOT_READY",
+        "Notification database storage is not configured yet. Apply migrations before using database persistence.",
+      );
+    }
+
+    throw new NotificationPersistenceError(
+      500,
+      "NOTIFICATION_DB_ERROR",
+      `Notification database query failed: ${error?.message ?? "unknown error"}`,
+    );
+  }
+
   getPreferences(userId: string): NotificationPreferences | undefined {
     return this.cache.getPreferences(userId);
   }
 
   savePreferences(preferences: NotificationPreferences): void {
     this.cache.savePreferences(preferences);
+    this.savePreferencesAsync(preferences).catch((err) => {
+      console.warn("Supabase background savePreferences warning:", err);
+    });
+  }
+
+  async savePreferencesAsync(
+    preferences: NotificationPreferences,
+  ): Promise<void> {
+    try {
+      const { supabase } = await import("../utils/supabase.js");
+      const { error } = await supabase.from("notification_preferences").upsert({
+        user_id: preferences.userId,
+        email_enabled: preferences.emailEnabled,
+        push_enabled: preferences.pushEnabled,
+        sms_enabled: preferences.smsEnabled,
+        in_app_enabled: preferences.inAppEnabled,
+        reminder_intervals: preferences.reminderIntervals,
+        notify_approaching_turn: preferences.notifyApproachingTurn,
+        notify_delay: preferences.notifyDelay,
+        notify_appointment_changes: preferences.notifyAppointmentChanges,
+        phone_number: preferences.phoneNumber ?? null,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        this.assertSchemaAvailable(error);
+      }
+    } catch (err) {
+      if (err instanceof NotificationPersistenceError) {
+        throw err;
+      }
+      this.assertSchemaAvailable(err as { code?: string; message?: string });
+    }
   }
 
   getNotifications(userId: string): InAppNotification[] {
@@ -222,6 +295,39 @@ export class SupabaseNotificationRepository implements NotificationRepository {
 
   saveNotification(notification: InAppNotification): void {
     this.cache.saveNotification(notification);
+    this.saveNotificationAsync(notification).catch((err) => {
+      console.warn("Supabase background saveNotification warning:", err);
+    });
+  }
+
+  async saveNotificationAsync(
+    notification: InAppNotification,
+  ): Promise<void> {
+    try {
+      const { supabase } = await import("../utils/supabase.js");
+      const { error } = await supabase.from("notifications").upsert({
+        id: notification.id,
+        user_id: notification.userId,
+        appointment_id: notification.appointmentId ?? null,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link ?? null,
+        metadata: notification.metadata ?? {},
+        read: notification.read,
+        read_at: notification.readAt ?? null,
+        created_at: notification.createdAt,
+      });
+
+      if (error) {
+        this.assertSchemaAvailable(error);
+      }
+    } catch (err) {
+      if (err instanceof NotificationPersistenceError) {
+        throw err;
+      }
+      this.assertSchemaAvailable(err as { code?: string; message?: string });
+    }
   }
 
   markNotificationRead(
@@ -229,11 +335,42 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     notificationId: string,
     readAt: string,
   ): InAppNotification | undefined {
-    return this.cache.markNotificationRead(userId, notificationId, readAt);
+    const updated = this.cache.markNotificationRead(
+      userId,
+      notificationId,
+      readAt,
+    );
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase
+          .from("notifications")
+          .update({ read: true, read_at: readAt })
+          .eq("id", notificationId)
+          .eq("user_id", userId),
+      )
+      .catch((err) => {
+        console.warn("Supabase background markNotificationRead warning:", err);
+      });
+    return updated;
   }
 
   markAllNotificationsRead(userId: string, readAt: string): number {
-    return this.cache.markAllNotificationsRead(userId, readAt);
+    const count = this.cache.markAllNotificationsRead(userId, readAt);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase
+          .from("notifications")
+          .update({ read: true, read_at: readAt })
+          .eq("user_id", userId)
+          .eq("read", false),
+      )
+      .catch((err) => {
+        console.warn(
+          "Supabase background markAllNotificationsRead warning:",
+          err,
+        );
+      });
+    return count;
   }
 
   getUnreadCount(userId: string): number {
@@ -242,6 +379,23 @@ export class SupabaseNotificationRepository implements NotificationRepository {
 
   savePushSubscription(sub: PushSubscriptionRecord): void {
     this.cache.savePushSubscription(sub);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase.from("push_subscriptions").upsert({
+          id: sub.id,
+          user_id: sub.userId,
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+          user_agent: sub.userAgent ?? null,
+          is_active: sub.isActive,
+          created_at: sub.createdAt,
+          updated_at: sub.updatedAt,
+        }),
+      )
+      .catch((err) => {
+        console.warn("Supabase background savePushSubscription warning:", err);
+      });
   }
 
   findPushSubscriptions(userId: string): PushSubscriptionRecord[] {
@@ -249,31 +403,139 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   deactivatePushSubscription(userId: string, endpoint: string): boolean {
-    return this.cache.deactivatePushSubscription(userId, endpoint);
+    const success = this.cache.deactivatePushSubscription(userId, endpoint);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase
+          .from("push_subscriptions")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .eq("endpoint", endpoint),
+      )
+      .catch((err) => {
+        console.warn(
+          "Supabase background deactivatePushSubscription warning:",
+          err,
+        );
+      });
+    return success;
   }
 
   saveScheduledJob(job: ScheduledNotificationJob): void {
     this.cache.saveScheduledJob(job);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase.from("scheduled_notifications").upsert({
+          id: job.id,
+          idempotency_key: job.idempotencyKey,
+          user_id: job.userId,
+          appointment_id: job.appointmentId ?? null,
+          event_type: job.eventType,
+          channel: job.channel,
+          scheduled_for: job.scheduledFor,
+          status: job.status,
+          attempts: job.attempts,
+          max_attempts: job.maxAttempts,
+          last_attempt_at: job.lastAttemptAt ?? null,
+          last_error: job.lastError ?? null,
+          payload: job.payload ?? {},
+          created_at: job.createdAt,
+          updated_at: job.updatedAt,
+        }),
+      )
+      .catch((err) => {
+        console.warn("Supabase background saveScheduledJob warning:", err);
+      });
   }
 
   findScheduledJob(id: string): ScheduledNotificationJob | undefined {
     return this.cache.findScheduledJob(id);
   }
 
-  findDueJobs(now: string, limit?: number): ScheduledNotificationJob[] {
+  findDueJobs(now: string, limit = 50): ScheduledNotificationJob[] {
     return this.cache.findDueJobs(now, limit);
   }
 
   cancelPendingJobsForAppointment(appointmentId: string): number {
-    return this.cache.cancelPendingJobsForAppointment(appointmentId);
+    const count = this.cache.cancelPendingJobsForAppointment(appointmentId);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase
+          .from("scheduled_notifications")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("appointment_id", appointmentId)
+          .in("status", ["pending", "processing"]),
+      )
+      .catch((err) => {
+        console.warn(
+          "Supabase background cancelPendingJobs warning:",
+          err,
+        );
+      });
+    return count;
   }
 
   recordDeliveryAttempt(attempt: DeliveryAttemptRecord): void {
     this.cache.recordDeliveryAttempt(attempt);
+    import("../utils/supabase.js")
+      .then(({ supabase }) =>
+        supabase.from("notification_delivery_attempts").insert({
+          id: attempt.id,
+          scheduled_notification_id: attempt.scheduledNotificationId ?? null,
+          channel: attempt.channel,
+          recipient: attempt.recipient,
+          provider: attempt.provider,
+          provider_message_id: attempt.providerMessageId ?? null,
+          status: attempt.status,
+          error_message: attempt.errorMessage ?? null,
+          metadata: attempt.metadata ?? {},
+          created_at: attempt.createdAt,
+        }),
+      )
+      .catch((err) => {
+        console.warn(
+          "Supabase background recordDeliveryAttempt warning:",
+          err,
+        );
+      });
   }
 
   getDeliveryAttempts(jobId?: string): DeliveryAttemptRecord[] {
     return this.cache.getDeliveryAttempts(jobId);
+  }
+
+  async syncFromDatabase(): Promise<void> {
+    try {
+      const { supabase } = await import("../utils/supabase.js");
+      const { data, error } = await supabase.from("notifications").select("*");
+      if (error) {
+        this.assertSchemaAvailable(error);
+      }
+      if (Array.isArray(data)) {
+        for (const row of data) {
+          this.cache.saveNotification({
+            id: String(row.id),
+            userId: String(row.user_id),
+            appointmentId: row.appointment_id
+              ? String(row.appointment_id)
+              : undefined,
+            type: row.type,
+            title: String(row.title),
+            message: String(row.message),
+            link: row.link ? String(row.link) : undefined,
+            metadata: (row.metadata as Record<string, unknown>) ?? {},
+            read: Boolean(row.read),
+            readAt: row.read_at ? String(row.read_at) : undefined,
+            createdAt: String(row.created_at),
+          });
+        }
+      }
+    } catch (err) {
+      if (err instanceof NotificationPersistenceError) {
+        throw err;
+      }
+      this.assertSchemaAvailable(err as { code?: string; message?: string });
+    }
   }
 
   reset(): void {

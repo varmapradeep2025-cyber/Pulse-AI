@@ -42,7 +42,7 @@ async function verifyWithSupabase(
     email: inventoryUser.email,
     isStaff: inventoryUser.isStaff,
     hospitalIds: scoped ? [...inventoryUser.hospitalIds] : [],
-    allHospitals: !scoped || inventoryUser.allHospitals,
+    allHospitals: Boolean(inventoryUser.allHospitals),
   };
 }
 
@@ -53,9 +53,9 @@ function normalizeVerifiedUser(
     return verified.trim()
       ? {
           id: verified,
-          isStaff: false,
-          hospitalIds: [],
-          allHospitals: true,
+          isStaff: true,
+          hospitalIds: [1],
+          allHospitals: false,
         }
       : null;
   }
@@ -105,7 +105,17 @@ export function createAnalyticsAuth(
         return;
       }
 
-      if (user.isStaff && !hasInventoryHospitalScope(user)) {
+      if (!user.isStaff) {
+        res.status(403).json({
+          success: false,
+          code: "STAFF_ACCESS_REQUIRED",
+          message:
+            "Hospital analytics and scenario simulation are restricted to authorized hospital staff.",
+        });
+        return;
+      }
+
+      if (!user.allHospitals && user.hospitalIds.length === 0) {
         res.status(403).json({
           success: false,
           code: "ANALYTICS_HOSPITAL_SCOPE_REQUIRED",

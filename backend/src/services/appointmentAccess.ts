@@ -9,11 +9,14 @@ export function hasAppointmentStaffAccess(
 ): boolean {
   const appMetadata = identity.appMetadata ?? {};
   const configuredIds = identity.staffUserIds ?? [];
+  const role = String(appMetadata.role ?? "").trim().toLowerCase();
 
   return (
     configuredIds.includes(identity.id) ||
     appMetadata.appointment_staff === true ||
-    appMetadata.role === "appointment_staff"
+    role === "appointment_staff" ||
+    role === "admin" ||
+    role === "administrator"
   );
 }
 
@@ -26,10 +29,14 @@ export function isStaffAuthorizedForHospital(
   }
 
   const appMetadata = identity.appMetadata ?? {};
-  if (
+  const role = String(appMetadata.role ?? "").trim().toLowerCase();
+  const isAdmin =
+    role === "admin" ||
+    role === "administrator" ||
     appMetadata.appointment_all_hospitals === true ||
-    appMetadata.all_hospitals === true
-  ) {
+    appMetadata.all_hospitals === true;
+
+  if (isAdmin) {
     return true;
   }
 
@@ -52,7 +59,6 @@ export function isStaffAuthorizedForHospital(
     return assigned.includes(hospitalId);
   }
 
-  // If environment configured staff without explicit hospital metadata restriction, permit for dev/demo
-  const configuredIds = identity.staffUserIds ?? [];
-  return configuredIds.includes(identity.id);
+  // Explicit hospital assignment is required; unassigned staff cannot access hospitals
+  return false;
 }

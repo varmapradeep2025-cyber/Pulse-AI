@@ -17,6 +17,10 @@ const STAFF_USER = {
   fullName: "Dr. Sharma",
   isStaff: true,
   staffUserIds: ["staff-1"],
+  appMetadata: {
+    role: "appointment_staff",
+    appointment_hospital_ids: ["H001", "hosp-bhopal-dist"],
+  },
 };
 
 test("booking confirmed appointment sends immediate confirmation notification and schedules reminders", () => {

@@ -1,5 +1,4 @@
-import { supabase } from "../lib/supabase";
-import { API_BASE_URL } from "../lib/api";
+import { API_BASE_URL, authenticatedFetch } from "../lib/api";
 
 export type AppointmentStatus =
   | "requested"
@@ -195,27 +194,13 @@ async function request<T>(
     body?: unknown;
   } = {},
 ): Promise<T> {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  if (sessionError || !session?.access_token) {
-    throw new AppointmentApiError(
-      "Sign in again to use appointments.",
-      401,
-      "AUTH_REQUIRED",
-    );
-  }
-
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await authenticatedFetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? "GET",
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
         ...(options.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),
@@ -230,6 +215,14 @@ async function request<T>(
       "The appointment service is unreachable. Check that the backend is running and try again.",
       0,
       "NETWORK_ERROR",
+    );
+  }
+
+  if (response.status === 401) {
+    throw new AppointmentApiError(
+      "Sign in again to use appointments.",
+      401,
+      "AUTH_REQUIRED",
     );
   }
 
