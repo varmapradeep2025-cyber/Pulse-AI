@@ -39,7 +39,6 @@ export default function App() {
               <Route path={ROUTES.home} element={<LandingPage />} />
               <Route path={ROUTES.login} element={<LoginPage />} />
               <Route path={ROUTES.signup} element={<SignupPage />} />
-              <Route path="*" element={<NotFoundPage />} />
             </Route>
 
             <Route element={<PortalLayout portal="citizen" />}>
@@ -145,6 +144,10 @@ export default function App() {
               path="/reports"
               element={<LegacyRedirect to={ROUTES.citizenReports} />}
             />
+
+            <Route element={<Layout />}>
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </SimpleModeProvider>

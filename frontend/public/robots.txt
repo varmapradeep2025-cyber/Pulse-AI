@@ -1,0 +1,10 @@
+# https://pulse-ai-ruby.vercel.app/robots.txt
+User-agent: *
+Allow: /
+Allow: /citizen
+Allow: /citizen/schemes
+Allow: /citizen/hospitals
+Disallow: /hospital/
+Disallow: /api/
+
+Sitemap: https://pulse-ai-ruby.vercel.app/sitemap.xml

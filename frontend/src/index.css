@@ -226,7 +226,8 @@ img {
 
 .btn--primary {
   background: var(--color-primary);
-  color: #fff;
+  color: #042f2e;
+  font-weight: 700;
   border-color: var(--color-primary);
 }
 
@@ -246,7 +247,7 @@ img {
 
 .btn--ghost {
   background: transparent;
-  color: var(--color-primary-dark);
+  color: var(--color-primary-hover);
   border-color: var(--color-border);
 }
 
@@ -347,12 +348,13 @@ img {
 
 .navbar__link:hover {
   background: var(--color-primary-soft);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-hover);
 }
 
 .navbar__link--active {
   background: var(--color-primary);
-  color: #fff;
+  color: #042f2e;
+  font-weight: 700;
 }
 
 .navbar__tools {
@@ -647,7 +649,8 @@ img {
 .chip--active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: #042f2e;
+  font-weight: 700;
 }
 
 .chip--availability {
@@ -842,7 +845,7 @@ img {
 }
 
 .scheme-match__icon--ok {
-  color: var(--color-primary-dark);
+  color: var(--color-success);
 }
 
 .scheme-match__icon--warn {
@@ -850,7 +853,7 @@ img {
 }
 
 .scheme-match__icon--bad {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .chip--match {
@@ -1091,7 +1094,7 @@ img {
   border: none;
   border-radius: 50%;
   background: var(--color-surface);
-  color: var(--color-primary-dark);
+  color: var(--color-primary-hover);
   cursor: pointer;
   transition: transform 0.12s ease;
 }
@@ -1779,7 +1782,7 @@ img {
   }
 }
 .report-card__link {
-  color: #2563eb;
+  color: #60a5fa;
   text-decoration: none;
   font-weight: 600;
 }
@@ -2358,7 +2361,8 @@ img {
 
 .rb-tab--active {
   background: var(--color-primary);
-  color: #fff;
+  color: #042f2e;
+  font-weight: 700;
 }
 
 .rb-section {
@@ -3718,7 +3722,8 @@ img {
 .appointment-time--active {
   border-color: var(--color-primary-dark);
   background: var(--color-primary);
-  color: #fff;
+  color: #042f2e;
+  font-weight: 700;
 }
 
 .appointment-muted {
@@ -3887,7 +3892,8 @@ img {
 }
 
 .appointment-estimate small {
-  color: #2f5f45;
+  color: #0f3f21;
+  font-weight: 600;
 }
 
 .appointment-estimate--unavailable {
