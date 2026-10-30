@@ -370,7 +370,7 @@ export const sampleSchemes: HealthcareScheme[] = [
     scheme_id: "cghs",
     name: "Central Government Health Scheme (CGHS)",
     short_description:
-      "Comprehensive healthcare for Central Government employees, pensioners, and their dependants.",
+      "Comprehensive healthcare for Central Government employees, pensioners, and their dependents.",
     full_description:
       "CGHS provides health care to serving Central Government employees, pensioners, and dependent family members through contributions, covering OPD, diagnostics, medicines, and in-patient treatment at CGHS dispensaries and empanelled hospitals.",
     category: "General Healthcare",
@@ -430,12 +430,12 @@ export const sampleSchemes: HealthcareScheme[] = [
     short_description:
       "Medical and cash benefits for employees covered under the ESI Act.",
     full_description:
-      "The ESI Scheme provides full medical care (with no upper expenditure ceiling) to insured persons and their dependant family members, along with sickness, maternity, disablement, and dependant cash benefits for employees in establishments covered under the Employees' State Insurance Act.",
+      "The ESI Scheme provides full medical care (with no upper expenditure ceiling) to insured persons and their dependent family members, along with sickness, maternity, disablement, and dependent cash benefits for employees in establishments covered under the Employees' State Insurance Act.",
     category: "Health Insurance",
     scope: "Central",
     target_beneficiaries: [
       "Employees in establishments covered under the ESI Act",
-      "Dependant family members of insured persons",
+      "Dependent family members of insured persons",
     ],
     eligibility_rules: [
       "Employee of an establishment covered under the ESI Act",
@@ -446,7 +446,7 @@ export const sampleSchemes: HealthcareScheme[] = [
       "Gross wages up to ₹21,000 per month (₹25,000 for persons with disability).",
     location_requirement: "Available across India (Central scheme).",
     coverage:
-      "Full medical care (OPD, medicines, specialist consultation, hospitalisation) for the insured person and family with no expenditure ceiling, plus sickness, maternity, disablement and dependant benefits as per the ESI Act.",
+      "Full medical care (OPD, medicines, specialist consultation, hospitalisation) for the insured person and family with no expenditure ceiling, plus sickness, maternity, disablement and dependent benefits as per the ESI Act.",
     required_documents: [
       "ESI IP card",
       "Employer/service proof",
@@ -665,7 +665,7 @@ export const sampleSchemes: HealthcareScheme[] = [
       "BPL category; monthly income not more than ₹15,000.",
     location_requirement: "Available across India (Central scheme).",
     coverage:
-      "Free assisted-living devices — walking sticks, elbow crutches, walkers, tripods/quadpods, hearing aids, wheelchairs, artificial dentures, and spectacles — distributed through assessment/distribution camps.",
+      "Free assisted-living devices — walking sticks, elbow crutches, walkers, tripods/quad pods, hearing aids, wheelchairs, artificial dentures, and spectacles — distributed through assessment/distribution camps.",
     required_documents: [
       "Aadhaar",
       "Age proof",
