@@ -36,3 +36,20 @@ test("day-one forecast advances to the next calendar day", () => {
   assert.equal(features[BASE_BANDS.DOW_FRI], 1);
   assert.equal(features[BASE_BANDS.DOW_THU], 0);
 });
+
+test("early lag fallbacks use only the historical prefix", () => {
+  const extended = [
+    ...series,
+    { date: "2026-09-04", demand: 1000 },
+  ];
+
+  assert.equal(buildBaseFeatures(series, 0)[BASE_BANDS.LAG1], 0);
+  assert.equal(
+    buildBaseFeatures(series, 1)[BASE_BANDS.LAG7],
+    10,
+  );
+  assert.deepEqual(
+    buildBaseFeatures(series, 0),
+    buildBaseFeatures(extended, 0),
+  );
+});

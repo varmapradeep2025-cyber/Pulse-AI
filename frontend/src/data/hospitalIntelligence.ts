@@ -74,8 +74,60 @@ export interface IntelligenceSummary {
     ml: { mae: number; rmse: number; mape: number };
     baseline: { mae: number; rmse: number };
   };
+  comparison?: ForecastComparison | null;
+  comparisonError?: string;
   series: SeriesForecast[];
   online: boolean;
+}
+
+export interface ForecastModelMetrics {
+  available: boolean;
+  observations: number;
+  folds: number;
+  seriesCount: number;
+  mae: number | null;
+  rmse: number | null;
+  wape: number | null;
+  macroMase: number | null;
+  maseSeriesCount: number;
+  zeroMaseDenominatorSeries: number;
+  perSeries: Array<{
+    series: string;
+    observations: number;
+    mae: number;
+    mase: number | null;
+  }>;
+}
+
+export interface ForecastComparison {
+  selectedModel: "seasonal_naive" | "ridge" | "xgboost";
+  selectionReason: string;
+  selectionRule: string;
+  validation: {
+    horizonDays: number;
+    minimumTrainingDays: number;
+    foldStepDays: number;
+    folds: number;
+    cutoffDates: string[];
+    firstForecastDate: string | null;
+    lastForecastDate: string | null;
+    seriesCount: number;
+    excludedSeries: Array<{ series: string; reason: string }>;
+    featureCount: number;
+    evaluation: string;
+  };
+  models: Record<string, ForecastModelMetrics>;
+  xgboost: {
+    available: boolean;
+    parameters: Record<string, number>;
+    targetTransform: string;
+  };
+  metricDefinitions: Record<string, string>;
+  selectedForecasts: Array<{
+    hospitalId: number;
+    medicineId: number;
+    forecast: ForecastPoint[];
+  }>;
 }
 
 class IntelligenceAuthError extends Error {
@@ -116,14 +168,63 @@ export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
 
     const payload = (await response.json()) as {
       success: boolean;
-      summary: Omit<IntelligenceSummary, "online">;
+      summary: Omit<IntelligenceSummary, "online" | "comparison" | "comparisonError">;
     };
 
     if (!payload.success || !payload.summary) {
       throw new Error("Backend returned no summary.");
     }
 
-    return { ...payload.summary, online: true };
+    const summary: IntelligenceSummary = {
+      ...payload.summary,
+      online: true,
+      comparison: null,
+    };
+
+    const comparisonController = new AbortController();
+    const comparisonTimeout = window.setTimeout(
+      () => comparisonController.abort(),
+      95_000,
+    );
+    try {
+      const comparisonResponse = await fetch(
+        `${API_BASE_URL}/api/intelligence/forecast-comparison`,
+        {
+          cache: "no-store",
+          headers: await authHeaders(),
+          signal: comparisonController.signal,
+        },
+      );
+      if (comparisonResponse.status === 401) {
+        throw new IntelligenceAuthError();
+      }
+
+      const comparisonPayload = (await comparisonResponse.json()) as {
+        success: boolean;
+        comparison?: ForecastComparison;
+        message?: string;
+      };
+      if (!comparisonResponse.ok || !comparisonPayload.success || !comparisonPayload.comparison) {
+        throw new Error(
+          comparisonPayload.message ?? "Forecast comparison is unavailable.",
+        );
+      }
+
+      return applyForecastComparison(summary, comparisonPayload.comparison);
+    } catch (comparisonError) {
+      if (comparisonError instanceof IntelligenceAuthError) {
+        throw comparisonError;
+      }
+    return {
+        ...summary,
+        comparisonError:
+          comparisonError instanceof Error
+            ? comparisonError.message
+            : "Forecast comparison is unavailable.",
+      };
+    } finally {
+      window.clearTimeout(comparisonTimeout);
+    }
   } catch (error) {
     if (error instanceof IntelligenceAuthError) {
       throw error;
@@ -133,6 +234,126 @@ export async function loadHospitalIntelligence(): Promise<IntelligenceSummary> {
   } finally {
     window.clearTimeout(timeoutId);
   }
+}
+
+function selectedModelLabel(model: ForecastComparison["selectedModel"]): string {
+  switch (model) {
+    case "seasonal_naive":
+      return "Seasonal naive";
+    case "xgboost":
+      return "XGBoost";
+    default:
+      return "Ridge regression";
+  }
+}
+
+function applyForecastComparison(
+  summary: IntelligenceSummary,
+  comparison: ForecastComparison,
+): IntelligenceSummary {
+  const selectedMetrics = comparison.models[comparison.selectedModel];
+  const seasonalMetrics = comparison.models.seasonal_naive;
+  const forecastBySeries = new Map(
+    comparison.selectedForecasts.map((item) => [
+      `${item.hospitalId}-${item.medicineId}`,
+      item.forecast,
+    ]),
+  );
+  const series = summary.series.map((item) => {
+    const forecast = forecastBySeries.get(`${item.hospitalId}-${item.medicineId}`);
+    if (!forecast?.length) {
+      return item;
+    }
+
+    let projected = item.currentStock;
+    let minimumProjected = projected;
+    let belowSafetyDay: number | null = null;
+    let daysToStockout: number | null = null;
+    for (let index = 0; index < forecast.length; index += 1) {
+      projected = Math.max(0, projected - forecast[index].predicted);
+      minimumProjected = Math.min(minimumProjected, projected);
+      if (belowSafetyDay === null && projected < item.safetyStock) {
+        belowSafetyDay = index + 1;
+      }
+      if (daysToStockout === null && projected <= 0) {
+        daysToStockout = index + 1;
+      }
+    }
+
+    const predictedDailyDemand = Math.round(
+      forecast.reduce((total, point) => total + point.predicted, 0) /
+        forecast.length,
+    );
+    const coverageDays = predictedDailyDemand > 0
+      ? Number((item.currentStock / predictedDailyDemand).toFixed(1))
+      : Infinity;
+    const riskLevel: RiskLevel =
+      daysToStockout !== null
+        ? "CRITICAL"
+        : belowSafetyDay !== null
+          ? "HIGH"
+          : minimumProjected <= item.safetyStock * 1.5
+            ? "MEDIUM"
+            : "LOW";
+    const leadTime = predictedDailyDemand > 0
+      ? Math.min(10, Math.max(2, Math.round(item.safetyStock / predictedDailyDemand)))
+      : 5;
+    const suggestedOrderQty = Math.max(1, Math.ceil(predictedDailyDemand * leadTime));
+    const recommendation =
+      riskLevel === "CRITICAL"
+        ? `Emergency procurement — projected stock-out in ${daysToStockout} day(s).`
+        : riskLevel === "HIGH"
+          ? `Replenish urgently — stock falls below safety level in ~${belowSafetyDay} day(s); order ≈ ${suggestedOrderQty} units.`
+          : riskLevel === "MEDIUM"
+            ? `Plan replenishment — stock is close to the safety buffer.`
+            : `Routine monitoring — ${coverageDays === Infinity ? "extensive" : `${coverageDays} days`} of stock cover available.`;
+
+      return {
+      ...item,
+      forecast,
+      predictedDailyDemand,
+      coverageDays,
+      daysToStockout,
+      belowSafetyDay,
+      riskLevel,
+      recommendation,
+      suggestedAction: recommendation,
+      suggestedOrderQty,
+    };
+  });
+
+  series.sort((first, second) => {
+    const severity = (risk: RiskLevel) =>
+      risk === "CRITICAL" ? 4 : risk === "HIGH" ? 3 : risk === "MEDIUM" ? 2 : 1;
+    const severityDifference = severity(second.riskLevel) - severity(first.riskLevel);
+    if (severityDifference !== 0) {
+      return severityDifference;
+    }
+    return (first.daysToStockout ?? 999) - (second.daysToStockout ?? 999);
+  });
+  series.forEach((item, index) => {
+    item.priority = index + 1;
+  });
+
+  return {
+    ...summary,
+    comparison,
+    model: {
+      ...summary.model,
+      name: selectedModelLabel(comparison.selectedModel),
+      evaluationDays: selectedMetrics?.observations ?? summary.model.evaluationDays,
+      ml: {
+        mae: selectedMetrics?.mae ?? summary.model.ml.mae,
+        rmse: selectedMetrics?.rmse ?? summary.model.ml.rmse,
+        mape: summary.model.ml.mape,
+      },
+      baseline: {
+        mae: seasonalMetrics?.mae ?? summary.model.baseline.mae,
+        rmse: seasonalMetrics?.rmse ?? summary.model.baseline.rmse,
+      },
+    },
+    series,
+  };
 }
 
 /* ------------------------------------------------------------------ */
